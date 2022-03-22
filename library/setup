@@ -1,0 +1,78 @@
+#! /usr/bin/lua
+
+local nixio = require("nixio")
+local uci = require("uci")
+
+function execute(args)
+    local facts = {}
+    local os_release_map = {
+        ansible_distribution = '^ID="(.*)"$',
+        ansible_architecture = '^OPENWRT_ARCH="(.*)"$',
+        ansible_board = '^OPENWRT_BOARD="(.*)"$',
+        ansible_distribution_version = '^VERSION="(.*)"$',
+        ansible_distribution_build = '^BUILD_ID="(.*)"$',
+    }
+    for line in io.lines("/etc/os-release")
+    do
+        for k, p in pairs(os_release_map)
+        do
+            local v = line:match(p)
+            if v then
+                facts[k] = v
+                break
+            end
+        end
+    end
+
+    local f = io.popen("/usr/local/bin/get_hardwaretype")
+    if f then
+        facts.ansible_hardware_type = f:read("*a"):match("(.+)\n")
+        f:close()
+    end
+    f = io.popen("/usr/local/bin/get_hardware_mfg")
+    if f then
+        facts.ansible_hardware_manufacturer = f:read("*a"):match("(.+)\n")
+        f:close()
+    end
+    f = io.popen("/usr/local/bin/get_model")
+    if f then
+        facts.ansible_hardware_model = f:read("*a"):match("(.+)\n")
+        f:close()
+    end
+
+    local ips = {}
+    for _, v in ipairs(nixio.getifaddrs())
+    do
+        if v.family == "inet" and v.addr ~= "127.0.0.1" then
+            ips[#ips + 1] = v.addr
+        end
+    end
+    facts.ansible_all_ipv4_addresses = ips
+
+    local cursor = uci.cursor("/etc/local/uci")
+    facts.ansible_hostname = cursor:get("hsmmmesh", "settings", "node") or "NoCall"
+
+
+    return { changed = false, failed = false, ansible_facts = facts }
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

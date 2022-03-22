@@ -1,0 +1,42 @@
+#! /usr/bin/lua
+
+local nixio = require("nixio")
+
+function execute(args)
+    local result = { changed = false, failed = false, msg = "" }
+
+    if not nixio.fs.stat(args.src) then
+        result.failed = true
+        result.msg = "src not found: " .. args.src
+    elseif not nixio.fs.stat(args.dest) or os.execute("cmp -s '" .. args.src .. "' '" .. args.dest .. "'") ~= 0 then
+        if os.execute("mv -f '" .. args.src .. "' '" .. args.dest .. "'") == 0 then
+            result.changed = true
+        else
+            result.failed = true
+            result.msg = "copy failed: " .. args.src .. " -> " .. args.dest
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

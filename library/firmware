@@ -1,0 +1,255 @@
+#! /usr/bin/lua
+
+local http = require("socket.http")
+local json = require("luci.jsonc")
+local uci = require("uci")
+local nixio = require("nixio")
+
+local root = "http://downloads.arednmesh.org/"
+
+function execute(args)
+    local result = { changed = false, failed = false, msg = "" }
+
+    local version
+    local board
+    for line in io.lines("/etc/os-release")
+    do
+        local r = line:match('^VERSION="(.*)"$')
+        if r then
+            version = r
+        end
+        r = line:match('^OPENWRT_BOARD="(.*)"$')
+        if r then
+            board = r
+        end
+    end
+
+    if not version then
+        result.failed = true
+        result.msg = "Cannot find current version"
+        return result
+    end
+    if not args.version and not args.file then
+        result.failed = true
+        result.msg = "No version specified"
+        return result
+    end
+    if args.version == version then
+        result.version = version
+        return result
+    end
+
+    if not board then
+        result.failed = true
+        result.msg = "Cannot find board"
+        return result
+    end
+
+    local cursor = uci.cursor("/etc/local/uci")
+    local profiles
+
+    if args.file then
+        if not nixio.fs.stat(args.file) then
+            result.failed = true
+            result.msg = "Cannot find file: " .. args.file
+            return result
+        end
+        if args.file ~= "/tmp/firmware" then
+            os.execute("mv -f '" .. args.file .. "' /tmp/firmware")
+        end
+    else
+        local base_url
+        if args.version == "nightly" then
+            -- Nightlies are easy to find
+            base_url = root .. "snapshots/targets/" .. board .. "/"
+        else
+            -- For everything else we need to find the available releases
+            local body, code = http.request(root .. "releases/")
+            local releases = {}
+            if not body then
+                result.failed = true
+                result.msg = "Cannot find versions: " .. code
+                result.url = root .. "releases/"
+                return result
+            end
+            for m in body:gmatch('href="(%d+%.%d+%.%d+%.%d+)/"')
+            do
+                releases[#releases + 1] = m
+            end
+            table.sort(releases)
+            if #releases == 0 then
+                result.failed = true
+                result.msg = "No releases"
+                return result
+            end
+            -- Select the latest if that's what we want
+            if args.version == "release" then
+                base_url = root .. "releases/" .. releases[#releases] .. "/targets/" .. board .. "/"
+            else
+                -- Otherwise make sure we have the specific one we ask for
+                if not args.version:match("%d+%.%d+%.%d+%.%d+") then
+                    result.failed = true
+                    result.msg = "Unknown version: " .. args.version
+                    return result
+                end
+                local found = false
+                for _, v in ipairs(releases)
+                do
+                    if v == args.version then
+                        found = true
+                        break
+                    end
+                end
+                if not found then
+                    result.failed = true
+                    result.msg = "Version not found"
+                    return result
+                end
+                base_url = root .. "releases/" .. args.version .. "/targets/" .. board .. "/"
+            end
+        end
+
+        -- Fetch and parse the profiles for the selected update
+        local body, code = http.request(base_url .. "profiles.json")
+        if not body then
+            result.failed = true
+            result.msg = "Cannot read firmware profiles: " .. code
+            return result
+        end
+        profiles = json.parse(body)
+
+        -- If we're on the correct version, nothing to do
+        if profiles.version_number == version then
+            return result
+        end
+
+        -- Otherwise, look for the appropriate firmware file
+        local boardtype = "unknown"
+        local f = io.popen("/usr/local/bin/get_hardwaretype")
+        if f then
+            boardtype = f:read("*a"):match("(%S+)")
+            f:close()
+        end
+        local sha256
+        for _, profile in pairs(profiles.profiles)
+        do
+            for _, id in ipairs(profile.supported_devices)
+            do
+                if id == boardtype then
+                    for _, v in ipairs(profile.images)
+                    do
+                        if v.type == "sysupgrade" then
+                            result.firmware = base_url .. v.name
+                            sha256 = v.sha256
+                            break
+                        end
+                    end
+                    break
+                end
+            end
+        end
+        if not result.firmware then
+            result.failed = true
+            result.msg = "Firmware not found"
+            return result
+        end
+
+        -- Fetch and verify the firmware
+        local node = cursor:get("hsmmmesh", "settings", "node") or "Node"
+        if os.execute("wget -U 'node: " .. node .. "' -O /tmp/firmware " .. result.firmware .. " > /dev/null 2>&1") ~= 0 then
+            result.failed = true
+            result.msg = "Failed to download firmware"
+            return result
+        end
+        local f = io.popen("sha256sum /tmp/firmware")
+        if f then
+            if f:read("*a"):match("^(%S+)") == sha256 then
+                sha256 = nil
+            end
+            f:close()
+        end
+        if sha256 then
+            os.remove("/tmp/firmware")
+            result.failed = true
+            result.msg = "Firmware checksum failed"
+            return result
+        end
+    end
+
+    local backup = false
+    if not args.first_boot then
+        local fin = io.open("/etc/arednsysupgrade.conf", "r")
+        if fin then
+            local fout = io.open("/tmp/sysupgradefilelist", "w")
+            if fout then
+                for line in fin:lines()
+                do
+                    if not line:match("^#") and nixio.fs.stat(line) then
+                        fout:write(line .. "\n")
+                    end
+                end
+                fout:close()
+                fin:close()
+                cursor:set("hsmmmesh", "settings", "nodeupgraded", "1")
+                cursor:commit("hsmmmesh")
+                if os.execute("tar -czf /tmp/arednsysupgradebackup.tgz -T /tmp/sysupgradefilelist > /dev/null 2>&1") == 0 then
+                    backup = true
+                else
+                    cursor:set("hsmmmesh", "settings", "nodeupgraded", "0")
+                    cursor:commit("hsmmmesh")
+                end
+                os.remove("/tmp/sysupgradefilelist")
+            end
+        end
+        if not backup then
+            result.failed = true
+            result.msg = "Failed to backup configuration"
+            return result
+        end
+    end
+
+    -- Do the upgrade
+    local pid = nixio.fork()
+    if pid == -1 then
+        result.failed = true
+        result.msg = "Failed to fork upgrade process"
+    elseif pid == 0 then
+        nixio.setsid() -- Stop ansible killing the child on the way out
+        if backup then
+            os.execute("/sbin/sysupgrade -f /tmp/arednsysupgradebackup.tgz -q /tmp/firmware > /dev/null 2>&1")
+        else
+            os.execute("/sbin/sysupgrade -q -n /tmp/firmware > /dev/null 2>&1")
+        end
+        os.exit()
+    else
+        result.changed = true
+        if profiles then
+            result.version = profiles.version_number
+        end
+        result.old_version = version
+        result.msg = "Upgrading" .. (backup and " with backup" or " with reset")
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

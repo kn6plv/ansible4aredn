@@ -1,0 +1,35 @@
+#! /usr/bin/lua
+
+function execute(args)
+    local tmpfile = "/tmp/ansible.out"
+    local rc = os.execute(args._raw_params .. " > " .. tmpfile .. " 2>&1")
+    local output = ""
+    local f = io.open(tmpfile, "r")
+    if f then
+        output = f:read("*a")
+        f:close()
+        os.remove(tmpfile)
+    end
+    return { failed = (rc ~= 0), rc = rc, msg = output }
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))
