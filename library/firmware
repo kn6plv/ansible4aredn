@@ -7,8 +7,34 @@ local nixio = require("nixio")
 
 local root = "http://downloads.arednmesh.org/"
 
+local services = {
+    dnsmasq = "dnsmasq",
+    ntpclient = "ntpclient",
+    urngd = "urngd",
+    rpcd = "rpcd",
+    telnet = "telnetd",
+    manager = "manager.lua",
+    log = "logd",
+    uhttpd = "uhttpd",
+    meshntpd = "ntpd",
+    meshchatsync = "meshchatsync"
+}
+
+function stop_services(extra_services)
+    for _, svcs in ipairs({ services, extra_services or {} })
+    do
+        for s, p in pairs(svcs)
+        do
+            os.execute("killall " .. p)
+            if nixio.fs.stat("/etc/init.d/" .. s) then
+                os.execute("/etc/init.d/" .. s .. " stop")
+            end
+        end
+    end
+end
+
 function execute(args)
-    local result = { changed = false, failed = false, msg = "" }
+    local result = { changed = false, failed = false }
 
     local version
     local board
@@ -54,6 +80,7 @@ function execute(args)
             result.msg = "Cannot find file: " .. args.file
             return result
         end
+        stop_services(args.shutdown_services)
         if args.file ~= "/tmp/firmware" then
             os.execute("mv -f '" .. args.file .. "' /tmp/firmware")
         end
@@ -130,6 +157,11 @@ function execute(args)
             boardtype = f:read("*a"):match("(%S+)")
             f:close()
         end
+        -- Board type naming inconsistencies
+        if boardtype:match("^cpe") then
+            boardtype = "tplink," .. boardtype
+        end
+
         local sha256
         for _, profile in pairs(profiles.profiles)
         do
@@ -156,6 +188,7 @@ function execute(args)
 
         -- Fetch and verify the firmware
         local node = cursor:get("hsmmmesh", "settings", "node") or "Node"
+        stop_services(args.shutdown_services)
         if os.execute("wget -U 'node: " .. node .. "' -O /tmp/firmware " .. result.firmware .. " > /dev/null 2>&1") ~= 0 then
             result.failed = true
             result.msg = "Failed to download firmware"

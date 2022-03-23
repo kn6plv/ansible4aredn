@@ -16,13 +16,12 @@ function capture(cmd)
 end
 
 function execute(args)
-    local result = { changed = false, failed = false, msg = "" }
+    local result = { changed = false, failed = false }
 
     if args.update_cache then
         result.cache_update_time = nixio.fs.stat("/var/opkg-lists/aredn_core", "mtime") or 0
         if result.cache_update_time + (tonumber(args.cache_valid_time) or -1) < os.time() then
             local rc, output = capture("opkg update > /dev/null 2>&1")
-            result.msg = result.msg .. output
             if rc == 0 then
                 result.cached_updated = true
                 result.cache_update_time = os.time()
@@ -50,25 +49,25 @@ function execute(args)
     end
 
     if args.state == "present" then
-        if not installed then
+        if not installed or args.reinstall then
             local options = "--force-overwrite "
             if args.allow_downgrade then
                 options = options .. "--force-downgrade "
             end
             if args.reinstall then
-                options = options .. "--force-reinstall"
+                options = options .. "--force-reinstall "
             end
-            if args.name then
-                options = options .. args.name
-            elseif args.pkg then
+            if args.pkg then
                 options = options .. args.pkg
+            elseif args.name then
+                options = options .. args.name
             end
             local rc, output = capture("opkg install " .. options)
-            result.msg = result.msg .. output
             if rc == 0 then
                 result.changed = true
             else
                 result.failed = true
+                result.msg = output
             end
         end
     elseif args.state == "absent" then
@@ -78,11 +77,11 @@ function execute(args)
                 options = "--autoremove "
             end
             local rc, output = capture("opkg remove " .. options .. args.name)
-            result.msg = result.msg .. output
             if rc == 0 then
                 result.changed = true
             else
                 result.failed = true
+                result.msg = output
             end
         end
     else

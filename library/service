@@ -1,0 +1,69 @@
+#! /usr/bin/lua
+
+local nixio = require("nixio")
+local ubus = require("ubus")
+
+function run(cmd)
+    if nixio.fork() == 0 then
+        nixio.setsid()
+        os.execute(cmd)
+        os.exit()
+    end
+end
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    if not args.name or not nixio.fs.stat("/etc/init.d/" .. args.name) then
+        result.failed = true
+        result.msg = "Missing service: " .. (args.name or "")
+    else
+        local cmd = "/etc/init.d/" .. args.name
+        if args.state == "reloaded" then
+            run(cmd .. " reload")
+            result.changed = true
+        elseif args.state == "restarted" then
+            run(cmd .. " restart")
+            result.changed = true
+        else
+            local list = ubus.connect():call("service", "list", {})
+            if args.state == "started" then
+                if not list[args.name] or not list[args.name].instances.instance1.running then
+                    run(cmd .. " start")
+                    result.changed = true
+                end
+            elseif args.state == "stopped" then
+                if list[args.name] and list[args.name].instances.instance1.running then
+                    run(cmd .. " stop")
+                    result.changed = true
+                end
+            else
+                result.failed = true
+                result.msg = "Bad state"
+            end
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

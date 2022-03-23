@@ -1,7 +1,9 @@
 #! /usr/bin/lua
 
 function execute(args)
-    return { changed = false, failed = false, msg = "" }
+    local result = { changed = false, failed = false, msg = "" }
+
+    return result
 end
 
 -- Boilerplate below --

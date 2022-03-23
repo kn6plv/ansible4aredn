@@ -5,15 +5,19 @@ local nixio = require("nixio")
 function execute(args)
     local result = { changed = false, failed = false }
 
-    if not nixio.fs.stat(args.src) then
-        result.failed = true
-        result.msg = "src not found: " .. args.src
-    elseif not nixio.fs.stat(args.dest) or os.execute("cmp -s '" .. args.src .. "' '" .. args.dest .. "'") ~= 0 then
-        if os.execute("mv -f '" .. args.src .. "' '" .. args.dest .. "'") == 0 then
-            result.changed = true
+    if not args.src or not nixio.fs.stat(args.src) then
+        result.failed = true;
+        result.msg = "File not found"
+    else
+        local f = io.open(args.src, "r")
+        if not f then
+            result.failed = true;
+            result.msg = "Cannot open file"
         else
-            result.failed = true
-            result.msg = "copy failed: " .. args.src .. " -> " .. args.dest
+            result.content = nixio.bin.b64encode(f:read("*a"))
+            f:close()
+            result.source = nixio.fs.realpath(args.src)
+            result.encoding = "base64"
         end
     end
 

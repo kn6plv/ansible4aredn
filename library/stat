@@ -3,7 +3,7 @@
 local nixio = require("nixio")
 
 function execute(args)
-    result = { changed = false, failed = false, msg = "" }
+    result = { changed = false, failed = false }
     if not args.path then
         result.failed = true
         result.msg = "Missing file"
