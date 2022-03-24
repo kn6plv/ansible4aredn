@@ -1,0 +1,123 @@
+#! /usr/bin/lua
+
+local uci = require("uci")
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    local dhcp_files = {}
+    dhcp_files["/etc/config.mesh/_setup.dhcp.dmz"] = {}
+    dhcp_files["/etc/config.mesh/_setup.dhcp.nat"] = {}
+
+    if not args.name then
+        result.failed = true
+        result.msg = "Missing name"
+    elseif not args.ipaddress or not args.ipaddress:match("^%d+%.%d+%.%d+%.%d+$") then
+        result.failed = true
+        result.msg = "Bad IP address"
+    elseif not args.macaddress or not args.macaddress:match("^[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]$") then
+        result.failed = true
+        result.msg = "Bad MAC address"
+    else
+        local cursor = uci.cursor()
+        local lanip = cursor:get("network", "lan", "ipaddr")
+        local lanbase, lanstart = lanip:match("^(%d+%.%d+%.%d+)%.(%d+)$")
+        lanstart = tonumber(lanstart)
+        local lanmask = cursor:get("network", "lan", "netmask")
+        local lancount = 253 - tonumber(lanmask:match("^%d+%.%d+%.%d+%.(%d+)$"))
+        local ip3, ip4 = args.ipaddress:match("^(%d+%.%d+%.%d+)%.(%d+)$")
+        ip4 = tonumber(ip4)
+        if ip3 ~= lanbase then
+            result.failed = true
+            result.msg = "Mismatching IP base: " .. lanbase
+        elseif ip4 < lanstart + 1 or ip4 > lanstart + lancount - 1 then
+            result.failed = true
+            result.msg = "IP out of range: " .. lanip .. "/" .. lanmask
+        else
+            local descriptor = args.macaddress .. " " .. (ip4 - lanstart + 1) .. " " .. args.name .. (args.noprop and " #NOPROP" or " ")
+
+            for file, tbl in pairs(dhcp_files)
+            do
+                for line in io.lines(file)
+                do
+                    tbl[#tbl + 1] = line
+                end
+            end
+
+            if args.state == "present" then
+                for _, tbl in pairs(dhcp_files)
+                do
+                    local found = false
+                    for idx, line in ipairs(tbl)
+                    do
+                        if line == descriptor then
+                            found = true
+                            break
+                        elseif line:match("^%S+%s%d+%s(%S+)") == args.name then
+                            -- Entry with the same name is different, so replace the old one
+                            table.remove(tbl, idx)
+                            break
+                        end
+                    end
+                    if not found then
+                        tbl[#tbl + 1] = descriptor
+                        result.changed = true
+                    end
+                end
+            elseif args.state == "absent" then
+                for _, tbl in pairs(dhcp_files)
+                do
+                    for idx, line in ipairs(tbl)
+                    do
+                        if line:match("^%S+%s%d+%s(%S+)") == args.name then
+                            result.changed = true
+                            table.remove(tbl, idx)
+                            break
+                        end
+                    end
+                end
+            else
+                result.failed = true
+                result.msg = "Unknown state"
+            end
+
+            -- Write new dhcp is there was a change
+            if result.changed then
+                for file, tbl in pairs(dhcp_files)
+                do
+                    local f = io.open(file, "w")
+                    if f then
+                        for _, line in ipairs(tbl)
+                        do
+                            f:write(line .. "\n")
+                        end
+                        f:close()
+                    end
+                end
+            end
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

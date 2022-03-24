@@ -147,6 +147,7 @@ function execute(args)
 
         -- If we're on the correct version, nothing to do
         if profiles.version_number == version then
+            result.version = version
             return result
         end
 
