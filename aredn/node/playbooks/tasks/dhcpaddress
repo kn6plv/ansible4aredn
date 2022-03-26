@@ -12,7 +12,7 @@ function execute(args)
     if not args.name then
         result.failed = true
         result.msg = "Missing name"
-    elseif not args.ipaddress or not args.ipaddress:match("^%d+%.%d+%.%d+%.%d+$") then
+    elseif not args.address or not args.address:match("^%d+%.%d+%.%d+%.%d+$") then
         result.failed = true
         result.msg = "Bad IP address"
     elseif not args.macaddress or not args.macaddress:match("^[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]:[%da-fA-F][%da-fA-F]$") then
@@ -25,7 +25,7 @@ function execute(args)
         lanstart = tonumber(lanstart)
         local lanmask = cursor:get("network", "lan", "netmask")
         local lancount = 253 - tonumber(lanmask:match("^%d+%.%d+%.%d+%.(%d+)$"))
-        local ip3, ip4 = args.ipaddress:match("^(%d+%.%d+%.%d+)%.(%d+)$")
+        local ip3, ip4 = args.address:match("^(%d+%.%d+%.%d+)%.(%d+)$")
         ip4 = tonumber(ip4)
         if ip3 ~= lanbase then
             result.failed = true
@@ -34,13 +34,15 @@ function execute(args)
             result.failed = true
             result.msg = "IP out of range: " .. lanip .. "/" .. lanmask
         else
-            local descriptor = args.macaddress .. " " .. (ip4 - lanstart + 1) .. " " .. args.name .. (args.noprop and " #NOPROP" or " ")
+            local descriptor = args.macaddress .. " " .. (ip4 - lanstart + 1) .. " " .. args.name .. (args.propagate and " " or " #NOPROP")
 
             for file, tbl in pairs(dhcp_files)
             do
-                for line in io.lines(file)
-                do
-                    tbl[#tbl + 1] = line
+                if nixio.fs.stat(file) then
+                    for line in io.lines(file)
+                    do
+                        tbl[#tbl + 1] = line
+                    end
                 end
             end
 
@@ -85,13 +87,15 @@ function execute(args)
             if result.changed then
                 for file, tbl in pairs(dhcp_files)
                 do
-                    local f = io.open(file, "w")
-                    if f then
-                        for _, line in ipairs(tbl)
-                        do
-                            f:write(line .. "\n")
+                    if nixio.fs.stat(file) then
+                        local f = io.open(file, "w")
+                        if f then
+                            for _, line in ipairs(tbl)
+                            do
+                                f:write(line .. "\n")
+                            end
+                            f:close()
                         end
-                        f:close()
                     end
                 end
             end

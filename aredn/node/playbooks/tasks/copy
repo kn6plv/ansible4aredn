@@ -17,6 +17,11 @@ function execute(args)
         end
     end
 
+    if not result.failed then
+        local stat = nixio.fs.stat(args.dest)
+        result.size = stat.size
+    end
+
     return result
 end
 

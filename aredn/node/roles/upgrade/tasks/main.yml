@@ -1,0 +1,47 @@
+# Upgrade firmware and (re)install packages
+
+- name: Download firmware
+  set_fact:
+    firmware: "{{ lookup('firmware', version) }}"
+- name: Upload firmware to node
+  copy:
+    src: "{{ firmware.file }}"
+    dest: /tmp/firmware
+  when: firmware.size > 0
+  register: download
+- name: Update node
+  firmware:
+    file: /tmp/firmware
+    sha256: "{{ firmware.sha256 }}"
+  when: firmware.size > 0
+- name: Wait for reboot
+  wait_for_connection:
+    delay: 10
+    timeout: 1200
+  when: firmware.size > 0
+
+- name: Download packages to install
+  get_url:
+    url: "{{item}}"
+    dest: /tmp
+  delegate_to: 127.0.0.1
+  run_once: true
+  loop: "{{ packages | default([]) }}"
+
+- name: Copy packages to node
+  copy:
+    src: "/tmp/{{item | basename}}"
+    dest: "/root/{{item | basename}}"
+  loop: "{{ packages | default([]) }}"
+  register: packagescopy
+
+- name: Install packages
+  opkg:
+    name: "{{item | basename}}"
+    pkg: "/root/{{item | basename}}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600,
+    reinstall: "{{packagescopy.changed}}"
+  loop: "{{ packages | default([]) }}"
+  notify: "update config"

@@ -1,0 +1,137 @@
+#! /usr/bin/lua
+
+local uci = require("uci")
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    if not args.name then
+        result.failed = true
+        result.msg = "Missing parameter: name"
+        return
+    end
+    if not args.password then
+        result.failed = true
+        result.msg = "Missing parameter: password"
+        return
+    end
+    if  not args.network then
+        result.failed = true
+        result.msg = "Missing parameter: network"
+        return
+    end
+
+    local cursor = uci.cursor()
+
+    local maxclients = cursor:get("aredn", "@tunnel[0]", "maxclients") 
+    if args.max and maxclients ~= args.max then
+        maxclients = args.max
+        cursor:set("aredn", "@tunnel[0]", "maxclients", maxclients)
+        result.changed = true
+        cursor:commit("aredn")
+        local r = io.open("/etc/config/aredn", "r")
+        if r then
+            local w = io.open("/etc/config.mesh/aredn", "w")
+            if w then
+                w:write(r:read("*a"))
+                w:close()
+            end
+            r:close()
+        end
+    end
+
+    if args.state == "present" then
+
+        local ip3, ip4 = args.network:match("^(%d+%.%d+%.%d+%.)(%d+)$")
+        local clientip = ip3 .. (tonumber(ip4) + 1)
+        local serverip = ip3 .. (tonumber(ip4) + 2)
+        local node = uci.cursor("/etc/local/uci"):get("hsmmmesh", "settings", "node"):upper() .. "-" .. args.network:gsub("%.", "-")
+        local enabled = args.enable and "1" or "0"
+        local contact = args.comment or ""
+
+        local server
+        for i = 0,maxclients - 1
+        do
+            server = "server_" .. i
+            local host = cursor:get("vtun", server, "host")
+            if not host then
+                result.changed = true
+                break
+            elseif host == args.name then
+                if cursor:get("vtun", server, "clientip") ~= clientip or
+                   cursor:get("vtun", server, "serverip") ~= serverip or
+                   cursor:get("vtun", server, "node") ~= node or
+                   cursor:get("vtun", server, "enabled") == enabled or
+                   cursor:get("vtun", server, "password") ~= args.password or
+                   cursor:get("vtun", server, "netip") ~= args.network or
+                   (cursor:get("vtun", server, "contact") or "") ~= contact then
+                    result.changed = true
+                end
+                break
+            end
+        end
+        if result.changed then
+            cursor:set("vtun", server, "clientip", clientup)
+            cursor:set("vtun", server, "serverip", serverip)
+            cursor:set("vtun", server, "node", node)
+            cursor:set("vtun", server, "enabled", enabled)
+            cursor:set("vtun", server, "host", args.name)
+            cursor:set("vtun", server, "password", args.password)
+            cursor:set("vtun", server, "netip", args.network)
+            cursor:set("vtun", server, "contact", contact)
+        end
+
+    else if args.state == "absent" then
+        for i = 0,maxclients - 1
+        do
+            local server = "server_" .. i
+            local host = cursor:get("vtun", server, "host")
+            if not host then
+                break
+            elseif host == args.name then
+                cursor:delete("vtun", server)
+                result.changed = true
+                break
+            end
+        end
+    else
+        result.failed = true
+        result.msg = "Bad state"
+    end
+
+    if result.changed then
+        cursor:commit("vtun")
+        local r = io.open("/etc/config/vtun", "r")
+        if r then
+            local w = io.open("/etc/config.mesh/vtun", "w")
+            if w then
+                w:write(r:read("*a"))
+                w:close()
+            end
+            r:close()
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

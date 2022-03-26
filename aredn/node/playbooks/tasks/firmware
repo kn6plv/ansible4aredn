@@ -52,12 +52,12 @@ function execute(args)
 
     if not version then
         result.failed = true
-        result.msg = "Cannot find current version"
+        result.msg = "cannot find current version"
         return result
     end
     if not args.version and not args.file then
         result.failed = true
-        result.msg = "No version specified"
+        result.msg = "no version specified"
         return result
     end
     if args.version == version then
@@ -67,19 +67,25 @@ function execute(args)
 
     if not board then
         result.failed = true
-        result.msg = "Cannot find board"
+        result.msg = "cannot find board"
         return result
     end
 
     local cursor = uci.cursor("/etc/local/uci")
     local profiles
+    local sha256
 
     if args.file then
         if not nixio.fs.stat(args.file) then
             result.failed = true
-            result.msg = "Cannot find file: " .. args.file
+            result.msg = "cannot find file: " .. args.file
             return result
         end
+        if not args.sha256 then
+            result.failed = true
+            result.msg = "missing checksum"
+        end
+        sha256 = args.sha256
         stop_services(args.shutdown_services)
         if args.file ~= "/tmp/firmware" then
             os.execute("mv -f '" .. args.file .. "' /tmp/firmware")
@@ -95,7 +101,7 @@ function execute(args)
             local releases = {}
             if not body then
                 result.failed = true
-                result.msg = "Cannot find versions: " .. code
+                result.msg = "cannot find versions: " .. code
                 result.url = root .. "releases/"
                 return result
             end
@@ -103,12 +109,12 @@ function execute(args)
             do
                 releases[#releases + 1] = m
             end
-            table.sort(releases)
             if #releases == 0 then
                 result.failed = true
-                result.msg = "No releases"
+                result.msg = "no releases"
                 return result
             end
+            table.sort(releases)
             -- Select the latest if that's what we want
             if args.version == "release" then
                 base_url = root .. "releases/" .. releases[#releases] .. "/targets/" .. board .. "/"
@@ -116,7 +122,7 @@ function execute(args)
                 -- Otherwise make sure we have the specific one we ask for
                 if not args.version:match("%d+%.%d+%.%d+%.%d+") then
                     result.failed = true
-                    result.msg = "Unknown version: " .. args.version
+                    result.msg = "unknown version: " .. args.version
                     return result
                 end
                 local found = false
@@ -129,7 +135,7 @@ function execute(args)
                 end
                 if not found then
                     result.failed = true
-                    result.msg = "Version not found"
+                    result.msg = "version not found"
                     return result
                 end
                 base_url = root .. "releases/" .. args.version .. "/targets/" .. board .. "/"
@@ -140,7 +146,7 @@ function execute(args)
         local body, code = http.request(base_url .. "profiles.json")
         if not body then
             result.failed = true
-            result.msg = "Cannot read firmware profiles: " .. code
+            result.msg = "cannot read firmware profiles: " .. code
             return result
         end
         profiles = json.parse(body)
@@ -163,7 +169,6 @@ function execute(args)
             boardtype = "tplink," .. boardtype
         end
 
-        local sha256
         for _, profile in pairs(profiles.profiles)
         do
             for _, id in ipairs(profile.supported_devices)
@@ -183,7 +188,7 @@ function execute(args)
         end
         if not result.firmware then
             result.failed = true
-            result.msg = "Firmware not found"
+            result.msg = "firmware not found"
             return result
         end
 
@@ -192,22 +197,23 @@ function execute(args)
         stop_services(args.shutdown_services)
         if os.execute("wget -U 'node: " .. node .. "' -O /tmp/firmware " .. result.firmware .. " > /dev/null 2>&1") ~= 0 then
             result.failed = true
-            result.msg = "Failed to download firmware"
+            result.msg = "failed to download firmware"
             return result
         end
-        local f = io.popen("sha256sum /tmp/firmware")
-        if f then
-            if f:read("*a"):match("^(%S+)") == sha256 then
-                sha256 = nil
-            end
-            f:close()
+    end
+
+    local f = io.popen("sha256sum /tmp/firmware")
+    if f then
+        if f:read("*a"):match("^(%S+)") == sha256 then
+            sha256 = nil
         end
-        if sha256 then
-            os.remove("/tmp/firmware")
-            result.failed = true
-            result.msg = "Firmware checksum failed"
-            return result
-        end
+        f:close()
+    end
+    if sha256 then
+        os.remove("/tmp/firmware")
+        result.failed = true
+        result.msg = "firmware checksum failed"
+        return result
     end
 
     local backup = false
@@ -237,7 +243,7 @@ function execute(args)
         end
         if not backup then
             result.failed = true
-            result.msg = "Failed to backup configuration"
+            result.msg = "failed to backup configuration"
             return result
         end
     end
@@ -246,7 +252,7 @@ function execute(args)
     local pid = nixio.fork()
     if pid == -1 then
         result.failed = true
-        result.msg = "Failed to fork upgrade process"
+        result.msg = "failed to fork upgrade process"
     elseif pid == 0 then
         nixio.setsid() -- Stop ansible killing the child on the way out
         if backup then
@@ -261,7 +267,7 @@ function execute(args)
             result.version = profiles.version_number
         end
         result.old_version = version
-        result.msg = "Upgrading" .. (backup and " with backup" or " with reset")
+        result.msg = "upgrading" .. (backup and " with backup" or " with reset")
     end
 
     return result

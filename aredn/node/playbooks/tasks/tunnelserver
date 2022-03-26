@@ -1,0 +1,94 @@
+#! /usr/bin/lua
+
+local uci = require("uci")
+
+function execute(args)
+    local result = { changed = false, failed = false, msg = "" }
+
+    if not args.name then
+        result.failed = true
+        result.msg = "Missing parameter: name"
+        return
+    end
+    if not args.password then
+        result.failed = true
+        result.msg = "Missing parameter: password"
+        return
+    end
+    if  not args.index then
+        result.failed = true
+        result.msg = "Missing parameter: index"
+        return
+    end
+
+    local mcursor = uci.cursor()
+
+    if args.dnsname then
+        if args.dnsname ~= mcursor:get("vtun", "network", "dns") then
+            mcursor:set("vtun", "network", "dns", args.dnsname)
+            result.changed = true
+        end
+    end
+    if args.network then
+        if args.network ~= mcursor:get("vtun", "network", "start") then
+            if not args.network:match("^172%.31%.") then
+                result.failed = true;
+                result.msg = "Bad network prefix"
+                return
+            end
+            mcursor:set("vtun", "network", "start", args.network)
+            result.change = true
+        end
+    end
+
+    if args.state == "present" then
+
+    else if args.state == "absent" then
+
+    else
+        result.failed = true
+        result.msg = "Bad state"
+    end
+
+    args.name
+    args.password
+    args.comment
+    args.state
+    args.active
+    args.index
+
+    if result.changed then
+        local r = io.open("/etc/config/vtun", "r")
+        if r then
+            local w = io.open("/etc/config.mesh/vtun", "w")
+            if w then
+                w:write(r:read("*a"))
+                w:close()
+            end
+            r:close()
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

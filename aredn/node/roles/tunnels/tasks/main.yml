@@ -1,0 +1,28 @@
+# Install tunnel configuration
+
+- name: Install tunnel server
+  tunnelserver:
+    dnsname: "{{ tunneldnsname }}"
+    network: "{{ tunnelnetwork }}"
+    name: "{{ item.name }}"
+    password: "{{ item.password }}"
+    comment: "{{ item.comment | default('') }}"
+    enable: "{{ item.enable | default(true) }}"
+    index: "{{ idx }}"
+  loop: "{{ tunnelservers }}"
+  loop_control:
+    index_var: idx
+  notify: "update tunnels"
+  when: "{{ tunnelservers }}"
+
+- name: Install tunnel clients
+  tunnelclient:
+    name: "{{ item.name }}"
+    password: "{ {item.password }}"
+    network: "{{ item.network }}"
+    comment: "{{ item.comment | default('') }}"
+    state: "{{ item.state | default(present) }}"
+    enable: "{{ item.enable | default(true) }}"
+  loop: "{{ tunnelclients }}"
+  notify: "update tunnels"
+  when: "{{ tunnelclients }}"

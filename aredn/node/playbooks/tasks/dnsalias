@@ -1,0 +1,106 @@
+#! /usr/bin/lua
+
+local nixio = require("nixio")
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    local aliases_files = {}
+    aliases_files["/etc/config.mesh/aliases.dmz"] = {}
+    aliases_files["/etc/config.mesh/aliases.nat"] = {}
+
+    if not args.name then
+        result.failed = true
+        result.msg = "Missing name"
+    elseif not args.address then
+        result.failed = true
+        result.msg = "Missing address"
+    else
+        for file, tbl in pairs(aliases_files)
+        do
+            if nixio.fs.stat(file) then
+                for line in io.lines(file)
+                do
+                    tbl[#tbl + 1] = line
+                end
+            end
+        end
+
+        if args.state == "present" then
+            local descriptor = args.address .. " " .. args.name
+            for _, tbl in pairs(aliases_files)
+            do
+                local found = false
+                for idx, line in ipairs(tbl)
+                do
+                    if line == descriptor then
+                        found = true
+                        break
+                    elseif line:match("^[%d%.]+%s(%S+)") == args.name then
+                        -- Entry with the same name is different, so replace the old one
+                        table.remove(tbl, idx)
+                        break
+                    end
+                end
+                if not found then
+                    tbl[#tbl + 1] = descriptor
+                    result.changed = true
+                end
+            end
+        elseif args.state == "absent" then
+            for _, tbl in pairs(aliases_files)
+            do
+                for idx, line in ipairs(tbl)
+                do
+                    if line:match("^[%d%.]+%s(%S+)") == args.name then
+                        table.remove(tbl, idx)
+                        result.changed = true
+                        break
+                    end
+                end
+            end
+        else
+            result.failed = true
+            result.msg = "Unknown state"
+        end
+
+        if result.changed then
+            for file, tbl in pairs(aliases_files)
+            do
+                if nixio.fs.stat(file) then
+                    local f = io.open(file, "w")
+                    if f then
+                        for _, line in ipairs(tbl)
+                        do
+                            f:write(line .. "\n")
+                        end
+                        f:close()
+                    end
+                end
+            end
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

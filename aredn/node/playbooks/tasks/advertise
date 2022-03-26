@@ -55,9 +55,11 @@ function execute(args)
     -- Read in services
     for file, tbl in pairs(service_files)
     do
-        for line in io.lines(file)
-        do
-            tbl[#tbl + 1] = line
+        if nixio.fs.stat(file) then
+            for line in io.lines(file)
+            do
+                tbl[#tbl + 1] = line
+            end
         end
     end
 
@@ -98,13 +100,15 @@ function execute(args)
     if result.changed then
         for file, tbl in pairs(service_files)
         do
-            local f = io.open(file, "w")
-            if f then
-                for _, line in ipairs(tbl)
-                do
-                    f:write(line .. "\n")
+            if nixio.fs.stat(file) then
+                local f = io.open(file, "w")
+                if f then
+                    for _, line in ipairs(tbl)
+                    do
+                        f:write(line .. "\n")
+                    end
+                    f:close()
                 end
-                f:close()
             end
         end
     end
