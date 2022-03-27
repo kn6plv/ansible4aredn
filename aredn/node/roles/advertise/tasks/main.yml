@@ -1,0 +1,12 @@
+- name: Advertise services
+  advertise:
+    name: "{{ item.name }}"
+    url: "{{ item.url | default(omit) }}"
+    link: "{{ item.link | default(omit) }}"
+    protocol: "{{ item.protocol | default(omit) }}"
+    hostname: "{{ item.hostname | default(omit) }}"
+    port: "{{ item.port | default(omit) }}"
+    path: "{{ item.path | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ advertise | default([]) }}"
+  notify: "update config"

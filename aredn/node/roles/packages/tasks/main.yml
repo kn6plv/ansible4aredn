@@ -1,0 +1,25 @@
+- name: Download packages to install
+  get_url:
+    url: "{{ item.url }}"
+    dest: /tmp
+    force: yes
+  delegate_to: 127.0.0.1
+  run_once: true
+  loop: "{{ packages | default([]) }}"
+
+- name: Copy packages to node
+  copy:
+    src: "/tmp/{{ item.url | basename }}"
+    dest: "/root/{{ item.url | basename }}"
+  loop: "{{ packages | default([]) }}"
+  register: packagescopy
+
+- name: Install packages
+  opkg:
+    name: "{{ item.url | basename }}"
+    pkg: "/root/{{ item.url | basename }}"
+    state: "{{ item.state | default('present') }}"
+    update_cache: true
+    cache_valid_time: 604800 # 1 week
+    reinstall: "{{packagescopy.changed}}"
+  loop: "{{ packages | default([]) }}"

@@ -1,6 +1,7 @@
 #! /usr/bin/lua
 
 local uci = require("uci")
+local nixio = require("nixio")
 
 function execute(args)
     local result = { changed = false, failed = false }
