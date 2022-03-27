@@ -1,0 +1,125 @@
+#! /usr/bin/lua
+
+local uci = require("uci")
+local cursor = uci.cursor()
+
+function simple(args, result)
+    local a, b, c = args.name:match("^(.+)%.(.*)%.(.*)$")
+    local ovalue = cursor:get(a, b, c)
+    if ovalue ~= args.value then
+        cursor:set(a, b, c, args.value)
+        cursor:commit(a)
+        result.changed = true
+    end
+    result.value = args.value
+    result.old_value = ovalue
+end
+
+function update_tunnels(args, result)
+    simple(args, result)
+    if result.changed then
+        local tunnel_if_count = 0
+        cursor:foreach('network_tun', 'interface',
+            function(s)
+                tunnel_if_count = tunnel_if_count + 1
+            end
+        )
+        local maxclients = cursor:get("aredn", "@tunnel[0]", "maxclients") or 10
+        local maxservers = cursor:get("aredn", "@tunnel[0]", "maxservers") or 10
+        local needed_if_count = maxclients + maxservers
+        if tunnel_if_count ~= needed_if_count then
+            for i = tunnel_if_count, needed_if_count-1
+            do
+                local section = "tun" .. (50 + i)
+                cursor:add("network_tun", section, "interface")
+                cursor:set("network_tun", section, "ifname", section)
+                cursor:set("network_tun", section, "proto", "none")
+                cursor:add("network", section, "interface")
+                cursor:set("network", section, "ifname", section)
+                cursor:set("network", section, "proto", "none")
+            end
+            for i = tunnel_if_count-1, needed_if_count,-1
+            do
+                local section = "tun" .. (50 + i)
+                cursor:delete("network_tun", section)
+                cursor:delete("network", section)
+            end
+            cursor:commit("network_tun")
+            cursor:commit("network")
+            for _, file in ipairs({ "network_tun", "network" })
+            do
+                local fi = io.open("/etc/config/" .. file, "r")
+                if fi then
+                    local fo = io.open("/etc/config.mesh/" .. file, "w")
+                    if fo then
+                        fo:write(fi:read("*a"))
+                        fo:close()
+                    end
+                    fi:close()
+                end
+            end
+            os.execute("sed -i -e '$r /etc/config.mesh/network_tun' -e '/interface.*tun',$d' /etc/config.mesh/network")
+        end
+    end
+end
+
+local config = {
+    "aredn.@map[0].maptiles" = simple,
+    "aredn.@map[0].leafletcss" = simple,
+    "aredn.@map[0].leafletjs" = simple,
+    "aredn.@downloads[0].firmwarepath" = simple,
+    "aredn.@downloads[0].pkgs_core" = simple,
+    "aredn.@downloads[0].pkgs_base" = simple,
+    "aredn.@downloads[0].pkgs_arednpackages" = simple,
+    "aredn.@downloads[0].pkgs_luci" = simple,
+    "aredn.@downloads[0].pkgs_packages" = simple,
+    "aredn.@downloads[0].pkgs_routing" = simple,
+    "aredn.@downloads[0].pkgs_telephony" = simple,
+    "aredn.@downloads[0].pkgs_freifunk" = simple,
+    "aredn.@tunnel[0].maxclients" = update_tunnels,
+    "aredn.@tunnel[0].maxservers" = update_tunnels,
+    "aredn.@meshstatus[0].lowmem" = simple,
+    "aredn.@meshstatus[0].lowroutes" = simple,
+    "aredn.@alerts[0].localpath" = simple,
+    "aredn.@alerts[0].pollrate" = simple
+}
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    if not args.name then
+        result.failed = true
+        result.msg = "missing name"
+    else
+        local fn = config[args.name]
+        if not fn then
+            result.failed = true
+            result.msg = "unknown name: " .. name
+        else
+            fn(args, result)
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

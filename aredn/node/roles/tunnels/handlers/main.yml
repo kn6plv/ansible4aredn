@@ -1,8 +1,0 @@
-- name: Restart tunnels
-  service:
-    name: "{{item}}"
-    state: restarted
-  loop:
-    - vtund
-    - vtundsrv
-  listen: "update tunnels"

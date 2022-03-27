@@ -1,10 +1,21 @@
 # Various handler to restart daemons
+
 - name: Update node config
   shell:
     cmd: /usr/local/bin/node-setup -p -a mesh
   listen: "update config"
+
 - name: Restart OLSRD
   service:
     name: olsrd
     state: restarted
   listen: "update config"
+  
+- name: Restart tunnels
+  service:
+    name: "{{item}}"
+    state: restarted
+  loop:
+    - vtund
+    - vtundsrv
+  listen: "update tunnels"
