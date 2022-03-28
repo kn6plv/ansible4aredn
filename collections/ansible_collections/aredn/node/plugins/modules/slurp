@@ -1,0 +1,46 @@
+#! /usr/bin/lua
+
+local nixio = require("nixio")
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    if not args.src or not nixio.fs.stat(args.src) then
+        result.failed = true;
+        result.msg = "File not found"
+    else
+        local f = io.open(args.src, "r")
+        if not f then
+            result.failed = true;
+            result.msg = "Cannot open file"
+        else
+            result.content = nixio.bin.b64encode(f:read("*a"))
+            f:close()
+            result.source = nixio.fs.realpath(args.src)
+            result.encoding = "base64"
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

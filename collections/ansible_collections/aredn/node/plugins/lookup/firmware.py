@@ -5,18 +5,22 @@ __metaclass__ = type
 
 import requests
 import re
-import tempfile
-from hashlib import sha256
+import hashlib
 import os
 
 DOCUMENTATION = """
   lookup: firmware
   author: Tim Wilkinson KN6PLV <tim.j.wilkinson@gmail.com>
   version_added: "0.1"
-  short_description: fetch firmware for specific device and version
+  short_description: fetch AREDN firmware
   description:
-      - ...
+    - This lookup fetch and cache AREDN firmware for specific device and version. It returns a filename containing the appropriate firmware.
   options:
+    _terms:
+      description: Firmware versions
+      required: True
+  notes:
+    - Uses device facts as part of selecting the appropriate firmware.
 """
 from ansible.errors import AnsibleError, AnsibleParserError
 from ansible.plugins.lookup import LookupBase
@@ -28,7 +32,7 @@ os.makedirs(firmware_dir, exist_ok=True)
 
 class LookupModule(LookupBase):
 
-    def run(self, versions, variables=None, **kwargs):
+    def run(self, terms, variables=None, **kwargs):
 
         self.set_options(var_options=variables, direct=kwargs)
 
@@ -40,7 +44,7 @@ class LookupModule(LookupBase):
             raise AnsibleError("no hardware type")
 
         ret = []
-        for version in versions:
+        for version in terms:
             if version == 'nightly':
                 # Select the latest if that's what we want
                 base_url = root + "snapshots/targets/" + board
@@ -97,7 +101,7 @@ class LookupModule(LookupBase):
                 resp = requests.get(firmware)
                 if resp.status_code != 200:
                     raise AnsibleError("cannot download firmware")
-                if sha256(resp.content).hexdigest() != sha:
+                if hashlib.sha256(resp.content).hexdigest() != sha:
                     raise AnsibleError("firmware checksum failed")
 
                 # Store content in a file
@@ -106,7 +110,7 @@ class LookupModule(LookupBase):
                 f.close()
             else:
                 f = open(filename, mode="r+b")
-                sha = sha256(f.read()).hexdigest()
+                sha = hashlib.sha256(f.read()).hexdigest()
                 f.close()
                     
             ret.append({ "version": version, "file": filename, "sha256": sha, "size": os.path.getsize(filename) })

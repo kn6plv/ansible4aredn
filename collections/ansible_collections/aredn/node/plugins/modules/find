@@ -1,0 +1,61 @@
+#! /usr/bin/lua
+
+local nixio = require("nixio")
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    if not args.paths or not args.patterns then
+        result.failed = true
+        result.msg = "Bad arguments"
+    else
+        local files = {}
+        local cmd = "find "
+        for _, p in ipairs(args.paths)
+        do
+            if nixio.fs.stat(p, "type") == "dir" then
+                cmd = cmd .. p .. " "
+            end
+        end
+        if #cmd ~= 5 then
+            for _, p in ipairs(args.patterns)
+            do
+                cmd = cmd .. "-name '" .. p .. "' -o "
+            end
+            cmd = cmd:sub(1, #cmd - 3)
+
+            local f = io.popen(cmd)
+            if f then
+                for entry in f:lines()
+                do
+                    files[#files + 1] = { path = entry }
+                end
+                f:close()
+            end
+        end
+        result.files = files
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

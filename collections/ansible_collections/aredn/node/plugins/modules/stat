@@ -1,0 +1,67 @@
+#! /usr/bin/lua
+
+local nixio = require("nixio")
+
+function execute(args)
+    result = { changed = false, failed = false }
+    if not args.path then
+        result.failed = true
+        result.msg = "Missing file"
+    else
+        local s = nixio.fs.stat(args.path)
+        if not s then
+            result.stat = {
+                exists = false
+            }
+        else
+            result.stat = {
+                exists = true,
+                path = nixio.fs.realpath(args.path),
+                atime = s.atime,
+                mtime = s.mtime,
+                ctime = s.ctime,
+                size = s.size,
+                mode = s.modedec,
+                isreg = s.type == "reg",
+                isdir = s.type == "dir",
+                isblk = s.type == "blk",
+                isfifo = s.type == "fifo",
+                ischr = s.type == "chr",
+                islnk = s.type == "lnk",
+                issock = s.type == "sock",
+                dev = s.dev,
+                uid = s.uid,
+                gid = s.gid,
+                ino = s.ino,
+                nlink = s.nlink
+            }
+            if args.get_checksum then
+                if args.checksum_algorithm == "sha1" then
+                    result.stat.checksum = ""
+                end
+            end
+        end
+    end
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))
