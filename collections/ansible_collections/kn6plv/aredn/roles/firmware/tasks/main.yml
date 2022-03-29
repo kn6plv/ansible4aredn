@@ -2,7 +2,7 @@
 
 - name: Download firmware
   set_fact:
-    firmware: "{{ lookup('aredn.node.firmware', version) }}"
+    firmware: "{{ lookup('kn6plv.aredn.firmware', version) }}"
 - name: Upload firmware to node
   copy:
     src: "{{ firmware.file }}"
