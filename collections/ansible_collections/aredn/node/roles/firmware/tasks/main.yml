@@ -13,9 +13,10 @@
   firmware:
     file: /tmp/firmware
     sha256: "{{ firmware.sha256 }}"
-  when: download.changed
+  when: download.changed or {{ force | default(false) }}
+  register: updating
 - name: Wait for reboot
   wait_for_connection:
     delay: 10
-    timeout: 1200
-  when: download.changed
+    timeout: 600
+  when: updating.changed
