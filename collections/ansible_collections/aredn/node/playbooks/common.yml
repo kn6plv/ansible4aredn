@@ -1,2 +1,2 @@
-- hosts: none
+- hosts: all
   gather_facts: no
