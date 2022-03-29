@@ -1,0 +1,3 @@
+- name: Schedule reboot
+  command: /bin/true
+  notify: "need reboot"
