@@ -19,3 +19,9 @@
     - vtund
     - vtundsrv
   listen: "update tunnels"
+
+- name: Reboot
+  reboot:
+    reboot_command: /sbin/reboot
+    test_command: /bin/true
+  listen: "need reboot"

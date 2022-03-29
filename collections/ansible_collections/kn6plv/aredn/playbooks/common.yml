@@ -1,2 +1,5 @@
 - hosts: all
   gather_facts: no
+  module_defaults:
+    - reboot:
+        reboot_command: /sbin/reboot
