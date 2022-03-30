@@ -7,6 +7,8 @@ import requests
 import re
 import hashlib
 import os
+from ansible.errors import AnsibleError
+from ansible.plugins.lookup import LookupBase
 
 DOCUMENTATION = """
   lookup: firmware
@@ -14,7 +16,8 @@ DOCUMENTATION = """
   version_added: "0.1"
   short_description: fetch AREDN firmware
   description:
-    - This lookup fetch and cache AREDN firmware for specific device and version. It returns a filename containing the appropriate firmware.
+    - This lookup fetch and cache AREDN firmware for specific device
+      and version. It returns a filename containing the appropriate firmware.
   options:
     _terms:
       description: Firmware versions
@@ -22,13 +25,12 @@ DOCUMENTATION = """
   notes:
     - Uses device facts as part of selecting the appropriate firmware.
 """
-from ansible.errors import AnsibleError, AnsibleParserError
-from ansible.plugins.lookup import LookupBase
 
 root = 'http://downloads.arednmesh.org/'
 firmware_dir = "/tmp/aredn-firmware/"
 
 os.makedirs(firmware_dir, exist_ok=True)
+
 
 class LookupModule(LookupBase):
 
@@ -74,13 +76,13 @@ class LookupModule(LookupBase):
                         raise AnsibleError("version not found: %s" % version)
                 else:
                     raise AnsibleError("unknown version: %s" % version)
-        
+
                 # Fetch and parse the profiles for the selected update
                 resp = requests.get(base_url + "/profiles.json")
                 if resp.status_code != 200:
                     raise AnsibleError("cannot read firmware profiles: %s" % (base_url + "/profiles.json"))
                 profiles = resp.json()
-                
+
                 # Actual version number
                 version = profiles["version_number"]
 
@@ -115,7 +117,7 @@ class LookupModule(LookupBase):
             f = open(filename, mode="r+b")
             sha = hashlib.sha256(f.read()).hexdigest()
             f.close()
-                    
-            ret.append({ "version": version, "file": filename, "sha256": sha, "size": os.path.getsize(filename) })
+
+            ret.append({"version": version, "file": filename, "sha256": sha, "size": os.path.getsize(filename)})
 
         return ret
