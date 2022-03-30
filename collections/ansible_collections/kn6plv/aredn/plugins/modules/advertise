@@ -42,13 +42,16 @@ function execute(args)
             return result
         end
     else
-        link = args.link and 1 or 0
         protocol = args.protocol or "http"
         hostname = args.hostname or uci.cursor("/etc/local/uci"):get("hsmmmesh", "settings", "node")
         port = args.port or 8080
         path = args.path or ""
-        if args.path or args.port or args.hostname or args.protocol then
+        if args.link ~= nil then
+            link = args.link and 1 or 0
+        elseif args.path or args.port or args.hostname or args.protocol then
             link = 1
+        else
+            link = 0
         end
     end
     local descriptor = string.format("%s|%d|%s|%s|%d|%s", args.name, link, protocol, hostname, port, path)
@@ -68,10 +71,14 @@ function execute(args)
         for _, tbl in pairs(service_files)
         do
             local found = false
-            for _, line in ipairs(tbl)
+            for idx, line in ipairs(tbl)
             do
                 if line == descriptor then
                     found = true
+                    break
+                elseif line:match("^([^|]+)") == args.name then
+                    -- Entry with the same name is different, so replace the old one
+                    table.remove(tbl, idx)
                     break
                 end
             end
@@ -85,7 +92,7 @@ function execute(args)
         do
             for i, line in ipairs(tbl)
             do
-                if line == descriptor then
+                if line:match("^([^|]+)") == args.name then
                     result.changed = true
                     table.remove(tbl, idx)
                     break
