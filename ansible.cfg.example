@@ -1,0 +1,11 @@
+[defaults]
+inventory = inventory
+collections_paths = ./collections/
+remote_tmp = /tmp/ansible
+remote_user = root
+remote_port = 2222
+ask_pass = True
+
+[ssh_connection]
+scp_if_ssh = True
+ssh_args = -o ServerAliveInterval=30 -o ControlMaster=auto -o ControlPersist=60s
