@@ -2,7 +2,8 @@
   get_url:
     url: "{{ item.url }}"
     dest: /tmp
-    force: yes
+    force: true
+    mode: "644"
   delegate_to: 127.0.0.1
   run_once: true
   loop: "{{ packages | default([]) }}"
@@ -11,6 +12,7 @@
   copy:
     src: "/tmp/{{ item.url | basename }}"
     dest: "/root/{{ item.url | basename }}"
+    mode: "644"
   loop: "{{ packages | default([]) }}"
   register: packagescopy
 
@@ -21,5 +23,5 @@
     state: "{{ item.state | default('present') }}"
     update_cache: true
     cache_valid_time: 604800 # 1 week
-    reinstall: "{{packagescopy.changed}}"
+    reinstall: "{{ packagescopy.changed }}"
   loop: "{{ packages | default([]) }}"

@@ -1,22 +1,19 @@
-# Upgrade firmware and (re)install packages
-
 - name: Download firmware
   set_fact:
     firmware: "{{ lookup('kn6plv.aredn.firmware', version) }}"
-- name: Upload firmware to node
-  copy:
-    src: "{{ firmware.file }}"
-    dest: /tmp/firmware
-  when: firmware.version != ansible_distribution_version
-  register: download
-- name: Update node
-  firmware:
-    file: /tmp/firmware
-    sha256: "{{ firmware.sha256 }}"
-  when: download.changed or (force | default(false))
-  register: updating
-- name: Wait for reboot
-  wait_for_connection:
-    delay: 10
-    timeout: 600
-  when: updating.changed
+- name: Update node firmware
+  block:
+    - name: Upload firmware to node
+      copy:
+        src: "{{ firmware.file }}"
+        dest: /tmp/firmware
+        mode: "644"
+    - name: Update node
+      firmware:
+        file: /tmp/firmware
+        sha256: "{{ firmware.sha256 }}"
+    - name: Wait for reboot
+      wait_for_connection:
+        delay: 10
+        timeout: 600
+  when: firmware.version != ansible_distribution_version or (force | default(false))

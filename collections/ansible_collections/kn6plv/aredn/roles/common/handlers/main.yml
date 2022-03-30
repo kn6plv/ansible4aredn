@@ -10,10 +10,10 @@
     name: olsrd
     state: restarted
   listen: "update config"
-  
+
 - name: Restart tunnels
   service:
-    name: "{{item}}"
+    name: "{{ item }}"
     state: restarted
   loop:
     - vtund

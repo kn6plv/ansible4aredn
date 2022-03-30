@@ -6,5 +6,6 @@
   loop: "{{ dnsalias | default([]) }}"
   notify: "update config"
 
-- import_role:
+- name: Include common handlers
+  import_role:
     name: common
