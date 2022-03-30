@@ -11,25 +11,40 @@ function execute(args)
 
     if not args.name then
         result.failed = true
-        result.msg = "Missing name"
+        result.msg = "missing name"
+        return result
     elseif not args.address then
         result.failed = true
-        result.msg = "Missing address"
-    else
+        result.msg = "missing address"
+        return result
+    end
+
+    for file, tbl in pairs(aliases_files)
+    do
+        if nixio.fs.stat(file) then
+            for line in io.lines(file)
+            do
+                tbl[#tbl + 1] = line
+            end
+        end
+    end
+
+    if args.state == "present" then
+        local descriptor
+        if args.address:match("^%d+%.%d+%.%d+%.%d+$") then
+            descriptor = args.address .. " " .. args.name
+        else
+            local entries = nixio.getaddrinfo(args.address, "inet")
+            if not entries then
+                result.failed = true
+                result.msg = "address lookup failed: " + args.address
+                return result
+            end
+            descriptor = entries[1].address .. " " .. args.name
+        end
         for file, tbl in pairs(aliases_files)
         do
             if nixio.fs.stat(file) then
-                for line in io.lines(file)
-                do
-                    tbl[#tbl + 1] = line
-                end
-            end
-        end
-
-        if args.state == "present" then
-            local descriptor = args.address .. " " .. args.name
-            for _, tbl in pairs(aliases_files)
-            do
                 local found = false
                 for idx, line in ipairs(tbl)
                 do
@@ -47,9 +62,11 @@ function execute(args)
                     result.changed = true
                 end
             end
-        elseif args.state == "absent" then
-            for _, tbl in pairs(aliases_files)
-            do
+        end
+    elseif args.state == "absent" then
+        for file, tbl in pairs(aliases_files)
+        do
+            if nixio.fs.stat(file) then
                 for idx, line in ipairs(tbl)
                 do
                     if line:match("^[%d%.]+%s(%S+)") == args.name then
@@ -59,23 +76,23 @@ function execute(args)
                     end
                 end
             end
-        else
-            result.failed = true
-            result.msg = "Unknown state"
         end
+    else
+        result.failed = true
+        result.msg = "Unknown state"
+    end
 
-        if result.changed then
-            for file, tbl in pairs(aliases_files)
-            do
-                if nixio.fs.stat(file) then
-                    local f = io.open(file, "w")
-                    if f then
-                        for _, line in ipairs(tbl)
-                        do
-                            f:write(line .. "\n")
-                        end
-                        f:close()
+    if result.changed then
+        for file, tbl in pairs(aliases_files)
+        do
+            if nixio.fs.stat(file) then
+                local f = io.open(file, "w")
+                if f then
+                    for _, line in ipairs(tbl)
+                    do
+                        f:write(line .. "\n")
                     end
+                    f:close()
                 end
             end
         end
