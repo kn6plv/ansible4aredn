@@ -10,3 +10,6 @@
     state: "{{ item.state | default('present') }}"
   loop: "{{ advertise | default([]) }}"
   notify: "update config"
+
+- import_role:
+    name: common

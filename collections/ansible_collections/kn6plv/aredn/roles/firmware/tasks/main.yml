@@ -13,7 +13,7 @@
   firmware:
     file: /tmp/firmware
     sha256: "{{ firmware.sha256 }}"
-  when: download.changed or {{ force | default(false) }}
+  when: download.changed or (force | default(false))
   register: updating
 - name: Wait for reboot
   wait_for_connection:

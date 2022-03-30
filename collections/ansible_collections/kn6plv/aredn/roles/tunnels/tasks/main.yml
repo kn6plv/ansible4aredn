@@ -26,3 +26,7 @@
   loop: "{{ tunnelclients }}"
   notify: "update tunnels"
   when: "{{ tunnelclients }}"
+
+
+- import_role:
+    name: common
