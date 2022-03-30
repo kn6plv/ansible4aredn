@@ -8,9 +8,10 @@ description: AREDN node configuration
 license:
   - GPL-2.0-or-later
 tags: []
-dependencies: {}
+dependencies:
 repository: https://github.com/kn6plv/ansible4aredn
 documentation: https://arednmesh.readthedocs.io
 homepage: https://www.arednmesh.org
 issues: https://github.com/kn6plv/ansible4aredn/issues
-build_ignore: []
+build_ignore:
+  - "*.tar.gz"
