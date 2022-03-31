@@ -1,7 +1,7 @@
 #! /usr/bin/lua
 
 function execute(args)
-    local result = { changed = false, failed = false, msg = "" }
+    local result = { changed = false, failed = false }
 
     return result
 end

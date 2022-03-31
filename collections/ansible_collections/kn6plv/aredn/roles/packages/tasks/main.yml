@@ -4,7 +4,7 @@
     dest: /tmp
     force: true
     mode: "644"
-  delegate_to: 127.0.0.1
+  delegate_to: localhost
   run_once: true
   loop: "{{ packages | default([]) }}"
 

@@ -1,5 +1,3 @@
-# Install tunnel configuration
-
 - name: Install tunnel server
   tunnelserver:
     dnsname: "{{ tunneldnsname }}"
