@@ -6,9 +6,10 @@ local nixio = require("nixio")
 function execute(args)
     local result = { changed = false, failed = false }
 
-    local service_files = {}
-    service_files["/etc/config.mesh/_setup.services.dmz"] = {}
-    service_files["/etc/config.mesh/_setup.services.nat"] = {}
+    local service_files = {
+        ["/etc/config.mesh/_setup.services.dmz"] = {},
+        ["/etc/config.mesh/_setup.services.nat"] = {}
+    }
 
     if not args.name then
         result.failed = true

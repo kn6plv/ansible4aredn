@@ -5,9 +5,10 @@ local nixio = require("nixio")
 function execute(args)
     local result = { changed = false, failed = false }
 
-    local port_files = {}
-    port_files["/etc/config.mesh/_setup.ports.dmz"] = {}
-    port_files["/etc/config.mesh/_setip.ports.nat"] = {}
+    local port_files = {
+        ["/etc/config.mesh/_setup.ports.dmz"] = {},
+        ["/etc/config.mesh/_setip.ports.nat"] = {}
+    }
 
     if not args.interface then
         result.failed = true

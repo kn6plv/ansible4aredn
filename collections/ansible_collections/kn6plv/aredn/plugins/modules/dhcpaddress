@@ -5,9 +5,10 @@ local uci = require("uci")
 function execute(args)
     local result = { changed = false, failed = false }
 
-    local dhcp_files = {}
-    dhcp_files["/etc/config.mesh/_setup.dhcp.dmz"] = {}
-    dhcp_files["/etc/config.mesh/_setup.dhcp.nat"] = {}
+    local dhcp_files = {
+        ["/etc/config.mesh/_setup.dhcp.dmz"] = {},
+        ["/etc/config.mesh/_setup.dhcp.nat"] = {}
+    }
 
     if not args.name then
         result.failed = true

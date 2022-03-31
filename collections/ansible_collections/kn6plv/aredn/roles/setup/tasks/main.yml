@@ -8,7 +8,7 @@
     - update basic config
     - need reboot
 
-- name: Setup mesh wifi
+- name: Setup MESH
   meshrf:
     enable: "{{ mesh.enable | default(omit) }}"
     address: "{{ mesh.address | default(omit) }}"

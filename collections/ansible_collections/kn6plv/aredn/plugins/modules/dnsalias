@@ -5,9 +5,10 @@ local nixio = require("nixio")
 function execute(args)
     local result = { changed = false, failed = false }
 
-    local aliases_files = {}
-    aliases_files["/etc/config.mesh/aliases.dmz"] = {}
-    aliases_files["/etc/config.mesh/aliases.nat"] = {}
+    local aliases_files = {
+        ["/etc/config.mesh/aliases.dmz"] = {},
+        ["/etc/config.mesh/aliases.nat"] = {}
+    }
 
     if not args.name then
         result.failed = true

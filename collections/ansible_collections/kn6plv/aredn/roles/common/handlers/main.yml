@@ -36,4 +36,5 @@
   reboot:
     reboot_command: /sbin/reboot
     test_command: /bin/true
+  when: rebooting
   listen: need reboot
