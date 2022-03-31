@@ -1,20 +1,26 @@
 # Various handler to restart daemons
 
+- name: Prepare reboot
+  set_fact:
+    rebooting: true
+  listen: need reboot
+
 - name: Update basic config
   shell:
     cmd: /usr/local/bin/node-setup -a mesh
-  listen: "update basic config"
+  listen: update basic config
 
 - name: Update node config
   shell:
     cmd: /usr/local/bin/node-setup -p -a mesh
-  listen: "update config"
+  listen: update config
 
 - name: Restart OLSRD
   service:
     name: olsrd
     state: restarted
-  listen: "update config"
+  when: not rebooting
+  listen: update config
 
 - name: Restart tunnels
   service:
@@ -23,10 +29,11 @@
   loop:
     - vtund
     - vtundsrv
-  listen: "update tunnels"
+  when: not rebooting
+  listen: update tunnels
 
 - name: Reboot
   reboot:
     reboot_command: /sbin/reboot
     test_command: /bin/true
-  listen: "need reboot"
+  listen: need reboot

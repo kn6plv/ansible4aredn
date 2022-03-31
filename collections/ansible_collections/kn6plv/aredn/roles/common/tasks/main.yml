@@ -1,0 +1,3 @@
+- name: Common
+  set_fact:
+    rebooting: false
