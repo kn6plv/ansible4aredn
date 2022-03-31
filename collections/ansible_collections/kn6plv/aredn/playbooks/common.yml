@@ -1,4 +1,2 @@
 - hosts: all
   gather_facts: false
-  roles:
-    - common
