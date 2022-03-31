@@ -58,13 +58,20 @@ function execute(args)
             result.changed = true
         end
     end
-    if args.dhcp_enable then
-        if args.dhcp_enable == true and config.lan_dhcp == "0" then
-            config.lan_dhcp = "1"
-            result.changed = true
-        elseif config.lan_dhcp == "1" then
-            config.lan_dhcp = "0"
-            result.changed = true
+    if args.dhcp_enable ~= nil then
+        if args.dhcp_enable == true then
+            if config.lan_dhcp == "0" then
+                config.lan_dhcp = "1"
+                result.changed = true
+            end
+        elseif args.dhcp_enable == false then
+            if config.lan_dhcp == "1" then
+                config.lan_dhcp = "0"
+                result.changed = true
+            end
+        else
+            result.failed = true
+            result.msg = "bad dhcp_enable: " .. args.dhcp_enable
         end
     end
 

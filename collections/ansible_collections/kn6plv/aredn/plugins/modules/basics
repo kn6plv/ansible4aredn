@@ -38,7 +38,7 @@ function execute(args)
 
     end
     if args.lat_lon then
-        local lat, lon = args.lat_lon:match("^([-+]?%d%d?%.%d+)%s*,%s*([-+]?%d%d?%.%d+)$")
+        local lat, lon = args.lat_lon:match("^([-+]?%d%d?%.%d+)%s*,%s*([-+]?%d%d?%d?%.%d+)$")
         if not lat or not lon then
             result.failed = true
             result.msg = "bad lat_lon: " .. args.lat_lon

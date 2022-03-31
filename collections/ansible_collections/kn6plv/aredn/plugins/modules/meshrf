@@ -1,5 +1,8 @@
 #! /usr/bin/lua
 
+local hardware = require("aredn.hardware")
+local iwinfo = require("iwinfo")
+
 function execute(args)
     local result = { changed = false, failed = false }
 
@@ -36,34 +39,75 @@ function execute(args)
         config.wifi_ssid = args.ssid
         result.changed = true
     end
-    if args.channel and args.channel ~= config.wifi_channel then
-        config.wifi_channel = args.channel
-        result.changed = true
-    end
-    if args.channel_width then
-        if not (args.channel_width == 5 or args.channel_width == 10 or args.channel_width == 20) then
-            result.failed = true
-            result.msg = "bad channel width"
-            return result
+    if args.channel then
+        local channel = tostring(args.channel)
+        local freqs = iwinfo.nl80211.freqlist(hardware.get_iface_name("wifi"))
+        if freqs then
+            local found = false
+            for _, f in ipairs(freqs)
+            do
+                local chan = f.channel
+                if chan > 127 then
+                    chan = chan - 256
+                end
+                if tostring(chan) == channel then
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                result.failed = true
+                result.msg = "unsupported channel: " .. args.channel
+                return result
+            end
         end
-        if args.channel_width ~= config.wifi_chanbw then
-            config.wifi_chanbw = args.channel_width
+        if config.wifi_channel ~= channel then
+            config.wifi_channel = channel
             result.changed = true
         end
     end
-    if args.tx_power and args.tx_power ~= config.wifi_txpower then
-        config.wifi_txpower = args.tx_power
-        result.changed = true
+    if args.channel_width then
+        local channel_width = tonumber(args.channel_width)
+        if not (channel_width == 5 or channel_width == 10 or channel_width == 20) then
+            result.failed = true
+            result.msg = "bad channel width: " .. args.channel_width
+            return result
+        end
+        if tostring(channel_width) ~= config.wifi_chanbw then
+            config.wifi_chanbw = channel_width
+            result.changed = true
+        end
+    end
+    if args.tx_power then
+        local tx_power = tonumber(args.tx_power)
+        if args.tx_power == "max" then
+            tx_power = hardware.wifi_maxpower(config.wifi_channel)
+        elseif not tx_power then
+            result.failed = true
+            result.msg = "bad tx_power: " .. args.tx_power
+            return
+        elseif tx_power < 1 then
+            tx_power = 1
+        else
+            local max = hardware.wifi_maxpower(config.wifi_channel)
+            if tx_power > max then
+                tx_power = max
+            end
+        end
+        if tostring(tx_power) ~= config.wifi_txpower then
+            config.wifi_txpower = tx_power
+            result.changed = true
+        end
     end
     if args.distance then
         local distance = args.distance == "auto" and 0 or tonumber(args.distance)
         if not distance then
             result.failed = true;
-            result.msg = "bad distance"
+            result.msg = "bad distance: " .. args.distance
             return result
         end
-        if distance ~= config.wifi_distance then
-            config.wifi_distance = args.channel
+        if tostring(distance) ~= config.wifi_distance then
+            config.wifi_distance = distance
             result.changed = true
         end
     end
