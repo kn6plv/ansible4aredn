@@ -4,6 +4,63 @@ local nixio = require("nixio")
 local uci = require("uci")
 
 function execute(args)
+    local ubiquity_map = {
+        ["0xe005"] = "Ubiquiti NanoStation M5",
+        ["0xe009"] = "Ubiquiti NanoStation Loco M9",
+        ["0xe012"] = "Ubiquiti NanoStation M2",
+        ["0xe035"] = "Ubiquiti NanoStation M3",
+        ["0xe0a2"] = "Ubiquiti NanoStation Loco M2",
+        ["0xe0a5"] = "Ubiquiti NanoStation Loco M5",
+        ["0xe105"] = "Ubiquiti Rocket M5",
+        ["0xe112"] = "Ubiquiti Rocket M2 with USB",
+        ["0xe1b2"] = "Ubiquiti Rocket M2",
+        ["0xe1b5"] = "Ubiquiti Rocket M5",
+        ["0xe1b9"] = "Ubiquiti Rocket M9",
+        ["0xe1c3"] = "Ubiquiti Rocket M3",
+        ["0xe1c5"] = "Ubiquiti Rocket M5 GPS",
+        ["0xe1d2"] = "Ubiquiti Rocket M2 Titanum",
+        ["0xe1d5"] = "Ubiquiti Rocket M5 Titanium GPS",
+        ["0xe202"] = "Ubiquiti Bullet M2 HP",
+        ["0xe205"] = "Ubiquiti Bullet M5",
+        ["0xe212"] = "Ubiquiti airGrid M2",
+        ["0xe215"] = "Ubiquiti airGrid M5",
+        ["0xe232"] = "Ubiquiti NanoBridge M2",
+        ["0xe235"] = "Ubiquiti NanoBridge M5",
+        ["0xe239"] = "Ubiquiti NanoBridge M9",
+        ["0xe242"] = "Ubiquiti airGrid M2 HP",
+        ["0xe243"] = "Ubiquiti NanoBridge M3",
+        ["0xe252"] = "Ubiquiti airGrid M2 HP",
+        ["0xe245"] = "Ubiquiti airGrid M5 HP",
+        ["0xe255"] = "Ubiquiti airGrid M5 HP",
+        ["0xe2b5"] = "Ubiquiti NanoBridge M5",
+        ["0xe2c2"] = "Ubiquiti NanoBeam M2 International",
+        ["0xe2c4"] = "Ubiquiti Bullet M2 XW",
+        ["0xe2d2"] = "Ubiquiti Bullet M2 Titanium HP",
+        ["0xe2d5"] = "Ubiquiti Bullet M5 Titanium",
+        ["0xe302"] = "Ubiquiti PicoStation M2",
+        ["0xe3e5"] = "Ubiquiti PowerBeam M5 XW 300",
+        ["0xe4a2"] = "Ubiquiti AirRouter",
+        ["0xe4b2"] = "Ubiquiti AirRouter HP",
+        ["0xe4d5"] = "Ubiquiti Rocket M5 Titanium",
+        ["0xe4e5"] = "Ubiquiti PowerBeam M5 400",
+        ["0xe6e5"] = "Ubiquiti PowerBeam M5 400-ISO",
+        ["0xe805"] = "Ubiquiti NanoStation M5",
+        ["0xe825"] = "Ubiquiti NanoBeam M5 19",
+        ["0xe835"] = "Ubiquiti AirGrid M5 XW",
+        ["0xe845"] = "Ubiquiti NanoStation Loco M5 XW",
+        ["0xe855"] = "Ubiquiti NanoStation M5 XW",
+        ["0xe865"] = "Ubiquiti LiteBeam M5",
+        ["0xe866"] = "Ubiquiti NanoStation M2 XW",
+        ["0xe867"] = "Ubiquiti NanoStation Loco M2 XW",
+        ["0xe868"] = "Ubiquiti Rocket M2 XW",
+        ["0xe885"] = "Ubiquiti PowerBeam M5 620 XW",
+        ["0xe8a5"] = "Ubiquiti NanoStation Loco M5",
+        ["0xe6b5"] = "Ubiquiti Rocket M5 XW",
+        ["0xe812"] = "Ubiquiti NanoBeam M2 13",
+        ["0xe815"] = "Ubiquiti NanoBeam M5 16",
+        ["0xe1a5"] = "Ubiquiti PowerBridge M5"
+    }
+
     local facts = {
         ansible_distribution = "aredn",
         ansible_os_family = "OpenWRT",
@@ -32,15 +89,18 @@ function execute(args)
         facts.ansible_hardware_type = f:read("*a"):match("(.+)\n")
         f:close()
     end
+    f = io.popen("/usr/local/bin/get_boardid")
+    if f then
+        facts.ansible_hardware_model = f:read("*a"):match("(.+)\n")
+        f:close()
+    end
     f = io.popen("/usr/local/bin/get_hardware_mfg")
     if f then
         facts.ansible_hardware_manufacturer = f:read("*a"):match("(.+)\n")
         f:close()
-    end
-    f = io.popen("/usr/local/bin/get_model")
-    if f then
-        facts.ansible_hardware_model = f:read("*a"):match("(.+)\n")
-        f:close()
+        if facts.ansible_hardware_manufacturer == "Ubiquiti" and facts.ansible_hardware_model then
+            facts.ansible_hardware_model = ubiquity_map[facts.ansible_hardware_model]
+        end
     end
 
     local ips = {}
