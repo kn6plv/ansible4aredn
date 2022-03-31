@@ -1,0 +1,104 @@
+#! /usr/bin/lua
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    local config = {}
+    for line in io.lines("/etc/config.mesh/_setup")
+    do
+        local k, v = line:match("^(%S+)%s=%s(.*)$")
+        config[k] = v
+    end
+
+    if args.hosts then
+        if args.hosts == "nat" then
+            if config.dmz_mode ~= "0" then
+                config.dmz_mode = "0"
+                result.changed = true
+            end
+            if args.address ~= config.lan_ip then
+                config.lan_ip = args.address
+                result.changed = true
+            end
+            if args.netmask ~= config.lan_mask then
+                config.lan_mask = config.netmask
+                result.changed = true
+            end
+            if args.dhcp_start ~= config.dhcp_start then
+                config.dhcp_start = args.dhcp_start
+                config.dhcp_limit = config.dhcp_end - config.dhcp_start + 1
+                result.changed = true
+            end
+            if args.dhcp_end ~= config.dhcp_end then
+                config.dhcp_end = args.dhcp_end
+                config.dhcp_limit = config.dhcp_end - config.dhcp_start + 1
+                result.changed = true
+            end
+        elseif args.hosts ~= config.dmz_dhcp_limit then
+            if args.hosts == "1" then
+                config.dmz_mode = 2
+            elseif args.hosts == "5" then
+                config.dmz_mode = 3
+            elseif args.hosts == "13" then
+                config.dmz_mode = 4
+            elseif args.hosts == "29" then
+                config.dmz_mode = 5
+            else
+                result.failed = true
+                result.msg = "valid hosts: nat, 1, 5, 13, 29"
+                return result
+            end
+            local a, b, c, d = config.wifi_ip:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
+            local ipdec = ((a * 0x1000000 + b * 0x10000 + c * 0x100 + d) * (args.hosts + 3)) % 0x1000000
+            config.dmz_dhcp_limit = args.hosts
+            config.dmz_dhcp_start = (ipdec + 2) % 0x100
+            config.dmz_dhcp_end = config.dmz_dhcp_start + config.dmz_dhcp_limit - 1
+            config.dmz_lan_ip = string.format("1%d.%d.%d.%d", math.floor(ipdec / 0x1000000) % 0x100, math.floor(ipdec / 0x10000) % 0x100, math.floor(ipdec / 0x100) % 0x100, (ipdec + 1) % 0x100)
+            config.dmz_lan_mask = "255.255.255." .. (253 - args.hosts)
+            result.changed = true
+        end
+    end
+    if args.dhcp_enable then
+        if args.dhcp_enable == true and config.lan_dhcp == "0" then
+            config.lan_dhcp = "1"
+            result.changed = true
+        elseif config.lan_dhcp == "1" then
+            config.lan_dhcp = "0"
+            result.changed = true
+        end
+    end
+
+    if result.changed then
+        local f = io.open("/etc/config.mesh/_setup", "w")
+        if f then
+            for k, v in pairs(config)
+            do
+                f:write(k .. " = " .. v .. "\n")
+            end
+            f:close()
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

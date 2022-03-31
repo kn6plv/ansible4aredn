@@ -1,0 +1,104 @@
+#! /usr/bin/lua
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    local config = {}
+    for line in io.lines("/etc/config.mesh/_setup")
+    do
+        local k, v = line:match("^(%S+)%s=%s(.*)$")
+        config[k] = v
+    end
+
+    if args.enable == false then
+        if config.wifi_enable ~= 0 then
+            config.wifi_enable = '0'
+            result.changed = true
+        end
+    else
+        if config.wifi_enable == 0 then
+            config.wifi_enable = '1'
+            result.changed = true
+        end
+    end
+    if args.address then
+        if not args.address:match("^10%.%d+%.$d+%.%d+$") then
+            result.failed = true
+            result.msg = "bad address"
+            return result
+        end
+        if args.address ~= config.wifi_ip then
+            config.wifi_ip = args.address
+            result.changed = true
+        end
+    end
+    if args.ssid and args.ssid ~= config.wifi_ssid then
+        config.wifi_ssid = args.ssid
+        result.changed = true
+    end
+    if args.channel and args.channel ~= config.wifi_channel then
+        config.wifi_channel = args.channel
+        result.changed = true
+    end
+    if args.channel_width then
+        if not (args.channel_width == 5 or args.channel_width == 10 or args.channel_width == 20) then
+            result.failed = true
+            result.msg = "bad channel width"
+            return result
+        end
+        if args.channel_width ~= config.wifi_chanbw then
+            config.wifi_chanbw = args.channel_width
+            result.changed = true
+        end
+    end
+    if args.tx_power and args.tx_power ~= config.wifi_txpower then
+        config.wifi_txpower = args.tx_power
+        result.changed = true
+    end
+    if args.distance then
+        local distance = args.distance == "auto" and 0 or tonumber(args.distance)
+        if not distance then
+            result.failed = true;
+            result.msg = "bad distance"
+            return result
+        end
+        if distance ~= config.wifi_distance then
+            config.wifi_distance = args.channel
+            result.changed = true
+        end
+    end
+
+    if result.changed then
+        local f = io.open("/etc/config.mesh/_setup", "w")
+        if f then
+            for k, v in pairs(config)
+            do
+                f:write(k .. " = " .. v .. "\n")
+            end
+            f:close()
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

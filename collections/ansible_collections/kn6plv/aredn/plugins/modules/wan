@@ -1,0 +1,104 @@
+#! /usr/bin/lua
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    local config = {}
+    for line in io.lines("/etc/config.mesh/_setup")
+    do
+        local k, v = line:match("^(%S+)%s=%s(.*)$")
+        config[k] = v
+    end
+
+    if args.enable == false then
+        if config.wan_proto ~= "disabled" then
+            config.wan_proto = "disabled"
+            result.changed = true
+        end
+    elseif config.wan_proto == "disabled" and not args.proto then
+        result.failed = true
+        result.msg = "unknown wan protocol"
+    else
+        if args.proto and args.proto ~= config.wan_proto then
+            config.wan_proto = args.proto
+            result.changed = true
+        end
+        if config.wan_proto == "static" then
+            if args.address and args.address ~= config.wan_ip then
+                config.wan_ip = args.address
+                result.changed = true
+            end
+            if args.netmask and args.netmask ~= config.wan_mask then
+                config.wan_mask = args.netmask
+                result.changed = true
+            end
+            if args.gateway and args.gateway ~= config.wan_gw then
+                config.wan_gw = args.gateway
+                result.changed = true
+            end
+        end
+        if args.dns then
+            local dns1, dns2 = args.dns.match("^(%S+)%s*,%s*(%S+)$")
+            if not dns1 then
+                result.failed = true
+                result.msg = "two dns addresses required"
+            elseif config.wan_dns1 ~= dns1 or config.wan_dns2 ~= dns2 then
+                config.wan_dns1 = dns1
+                config.wan_dns2 = dns2
+                result.changed = true
+            end
+        end
+        if args.allow_mesh ~= nil then
+            if args.allow_mesh and config.olsrd_gw ~= "1" then
+                config.olsrd_gw = "1"
+                result.changed = true
+            elseif config.olsrd_gw ~= "0" then
+                config.olsrd_gw = "0"
+                result.changed = true
+            end
+        end
+        if args.allow_lan ~= nil then
+            if args.allow_lan and config.lan_dhcp_noroute ~= "0" then
+                config.lan_dhcp_noroute = "0"
+                result.changed = true
+            elseif config.lan_dhcp_noroute ~= "1" then
+                config.lan_dhcp_noroute = "1"
+                result.changed = true
+            end
+        end
+    end
+
+    if result.changed then
+        local f = io.open("/etc/config.mesh/_setup", "w")
+        if f then
+            for k, v in pairs(config)
+            do
+                f:write(k .. " = " .. v .. "\n")
+            end
+            f:close()
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

@@ -1,0 +1,101 @@
+#! /usr/bin/lua
+
+local uci = require("uci")
+
+function execute(args)
+    local result = { changed = false, failed = false }
+
+    local config = {}
+    for line in io.lines("/etc/config.mesh/_setup")
+    do
+        local k, v = line:match("^(%S+)%s=%s(.*)$")
+        config[k] = v
+    end
+
+    if args.description and args.description ~= config.description_node then
+        config.description_node = args.description
+        result.changed = true
+    end
+    if args.ntp_server and args.ntp_server ~= config.ntp_server then
+        config.ntp_server = args.ntp_server
+        result.changed = true
+    end
+    if args.timezone and args.timezone ~= config.time_zone_name then
+        for line in io.lines("/etc/zoneinfo")
+        do
+            local name, tz = line:match("^(.*)\t(.*)")
+            if name == args.timezone then
+                config.time_zone_name = name
+                config.time_zone = tz
+                result.changed = true
+                break
+            end
+        end
+        if config.time_zone_name ~= args.timezone then
+            result.failed = true
+            result.msg = "unknown timezone: " .. args.timezone
+        end
+
+    end
+    if args.lat_lon then
+        local lat, lon = args.lat_lon:match("^([-+]?%d%d?%.%d+)%s*,%s*([-+]?%d%d?%.%d+)$")
+        if not lat or not lon then
+            result.failed = true
+            result.msg = "bad lat_lon: " .. args.lat_lon
+        else
+            local cursor = uci.cursor()
+            if lat ~= cursor:get("aredn", "@location[0]", "lat") or lon ~= cursor:get("aredn", "@location[0]", "lon") then
+                cursor:set("aredn", "@location[0]", "lat", lat)
+                cursor:set("aredn", "@location[0]", "lon", lon)
+                cursor:commit("aredn")
+                local cursorb = uci.cursor("/etc/config.mesh")
+                cursorb:set("aredn", "@location[0]", "lat", lat)
+                cursorb:set("aredn", "@location[0]", "lon", lon)
+                cursorb:commit("aredn")
+                result.changed = true
+            end
+        end
+    end
+    if args.gridsquare then
+        local cursor = uci.cursor()
+        if args.gridsquare ~= cursor:get("aredn", "@location[0]", "gridsquare") then
+            cursor:set("aredn", "@location[0]", "gridsquare", args.gridsquare)
+            cursor:commit("aredn")
+            result.changed = true
+        end
+    end
+
+    if result.changed then
+        local f = io.open("/etc/config.mesh/_setup", "w")
+        if f then
+            for k, v in pairs(config)
+            do
+                f:write(k .. " = " .. v .. "\n")
+            end
+            f:close()
+        end
+    end
+
+    return result
+end
+
+-- Boilerplate below --
+
+local json = require("luci.jsonc")
+
+local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
+if not success then
+    result = {
+        failed = true,
+        changed = false,
+        msg = result
+    }
+else
+    if result.failed ~= false then
+        result.failed = true
+    end
+    if result.changed ~= false then
+        result.changed = true
+    end
+end
+io.write(json.stringify(result))

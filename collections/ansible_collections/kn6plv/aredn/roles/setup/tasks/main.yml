@@ -1,0 +1,55 @@
+- name: Setup node basics
+  basics:
+    description: "{{ description | default(omit) }}"
+    location: "{{ location | default(omit) }}"
+    timezone: "{{ timezone | default(omit) }}"
+    ntp_server: "{{ ntp_server | default(omit) }}"
+  notify: 
+    - update basic config
+    - need reboot
+
+- name: Setup mesh wifi
+  meshrf:
+    enable: "{{ meshenable | default(omit) }}"
+    address: "{{ mesh.address | default(omit) }}"
+    ssid: "{{ mesh.ssid | default(omit) }}"
+    channel: "{{ mesh.channel | default(omit) }}"
+    channel_width: "{{ mesh.channel_width | default(omit) }}"
+    tx_power: "{{ mesh.tx_power | default(omit) }}"
+    distance: "{{ mesh.distance | default(omit)}}"
+  notify:
+    - update basic config
+    - need reboot
+  when: mesh is defined
+
+- name: Setup LAN
+  lan:
+    hosts: "{{ lan.hosts | default(omit) }}"
+    address: "{{ lan.address | default(omit) }}"
+    netmask: "{{ lan.netmask | default(omit) }}"
+    dhcp_start: "{{ lan.dhcp_start | default(omit) }}"
+    dhcp_end: "{{ lan.dhcp_end | default(omit) }}"
+    dhcp_enable: "{{ lan.dhcp_enable | default(omit) }}"
+  notify:
+    - update basic config
+    - need reboot
+  when: lan is defined
+
+- name: Setup WAN
+  wan:
+    enable: "{{ wan.enable || default(omit) }}"
+    protocol: "{{ wan.protocol | default(omit) }}"
+    address: "{{ wan.address | default(omit) }}"
+    netmask: "{{ wan.netmask | default(omit) }}"
+    gateway: "{{ wan.gateway | default(omit) }}"
+    dns: "{{ wan.dns | default(omit) }}"
+    allow_mesh: "{{ wan.allow_mesh | default(omit) }}"
+    allow_lan: "{{ wan.allow_lan | default(omit) }}"
+  notify:
+    - update basic config
+    - need reboot
+  when: wan is defined
+
+- name: Include common handlers
+  import_role:
+    name: common
