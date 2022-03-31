@@ -47,7 +47,7 @@ function execute(args)
             for _, f in ipairs(freqs)
             do
                 local chan = f.channel
-                if chan > 127 then
+                if chan > 184 then
                     chan = chan - 256
                 end
                 if tostring(chan) == channel then
@@ -81,7 +81,7 @@ function execute(args)
     if args.tx_power then
         local tx_power = tonumber(args.tx_power)
         if args.tx_power == "max" then
-            tx_power = hardware.wifi_maxpower(config.wifi_channel)
+            tx_power = hardware.wifi_maxpower(tonumber(config.wifi_channel))
         elseif not tx_power then
             result.failed = true
             result.msg = "bad tx_power: " .. args.tx_power
@@ -89,7 +89,7 @@ function execute(args)
         elseif tx_power < 1 then
             tx_power = 1
         else
-            local max = hardware.wifi_maxpower(config.wifi_channel)
+            local max = hardware.wifi_maxpower(tonumber(config.wifi_channel))
             if tx_power > max then
                 tx_power = max
             end

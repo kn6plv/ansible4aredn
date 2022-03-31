@@ -38,7 +38,7 @@ function execute(args)
             end
         end
         if args.dns then
-            local dns1, dns2 = args.dns.match("^(%S+)%s*,%s*(%S+)$")
+            local dns1, dns2 = args.dns:match("^(%S+)%s*,%s*(%S+)$")
             if not dns1 then
                 result.failed = true
                 result.msg = "two dns addresses required"
@@ -52,7 +52,7 @@ function execute(args)
             if args.allow_mesh and config.olsrd_gw ~= "1" then
                 config.olsrd_gw = "1"
                 result.changed = true
-            elseif config.olsrd_gw ~= "0" then
+            elseif not args.allow_mesh and config.olsrd_gw ~= "0" then
                 config.olsrd_gw = "0"
                 result.changed = true
             end
@@ -61,7 +61,7 @@ function execute(args)
             if args.allow_lan and config.lan_dhcp_noroute ~= "0" then
                 config.lan_dhcp_noroute = "0"
                 result.changed = true
-            elseif config.lan_dhcp_noroute ~= "1" then
+            elseif not args.allow_lan and config.lan_dhcp_noroute ~= "1" then
                 config.lan_dhcp_noroute = "1"
                 result.changed = true
             end
