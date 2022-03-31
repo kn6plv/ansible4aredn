@@ -1,7 +1,3 @@
 - name: Schedule reboot
   command: /bin/true
-  notify: "need reboot"
-
-- name: Include common handlers
-  import_role:
-    name: common
+  notify: need reboot

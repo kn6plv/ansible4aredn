@@ -4,8 +4,4 @@
     address: "{{ item.address }}"
     state: "{{ item.state | default('present') }}"
   loop: "{{ dnsalias | default([]) }}"
-  notify: "update config"
-
-- name: Include common handlers
-  import_role:
-    name: common
+  notify: update config"

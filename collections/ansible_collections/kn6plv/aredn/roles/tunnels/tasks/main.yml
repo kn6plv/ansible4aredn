@@ -10,7 +10,7 @@
   loop: "{{ tunnelservers }}"
   loop_control:
     index_var: idx
-  notify: "update tunnels"
+  notify: update tunnels
   when: tunnelservers
 
 - name: Install tunnel clients
@@ -22,9 +22,5 @@
     state: "{{ item.state | default(present) }}"
     enable: "{{ item.enable | default(true) }}"
   loop: "{{ tunnelclients }}"
-  notify: "update tunnels"
+  notify: update tunnels
   when: tunnelclients
-
-- name: Include common handlers
-  import_role:
-    name: common
