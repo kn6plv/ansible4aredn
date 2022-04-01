@@ -28,7 +28,7 @@ function execute(args)
             end
         end
     end
-    
+
     local installed = false
     if args.name then
         local rc, output = capture("opkg list-installed")

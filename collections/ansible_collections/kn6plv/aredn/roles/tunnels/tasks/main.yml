@@ -11,7 +11,7 @@
   loop_control:
     index_var: idx
   notify: update tunnels
-  when: tunnel_server | default(false)
+  when: tunnel_server is defined
 
 - name: Configure tunnel clients
   tunnelclient:
@@ -23,4 +23,4 @@
     enable: "{{ item.enable | default(true) }}"
   loop: "{{ tunnel_clients }}"
   notify: update tunnels
-  when: tunnel_clients | default(false)
+  when: tunnel_clients is defined
