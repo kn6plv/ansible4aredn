@@ -3,61 +3,74 @@
 local uci = require("uci")
 
 function execute(args)
-    local result = { changed = false, failed = false, msg = "" }
+    local result = { changed = false, failed = false }
 
     if not args.name then
         result.failed = true
-        result.msg = "Missing parameter: name"
-        return
+        result.msg = "missing parameter: name"
+        return result
     end
     if not args.password then
         result.failed = true
-        result.msg = "Missing parameter: password"
-        return
+        result.msg = "missing parameter: password"
+        return result
     end
-    if  not args.index then
+    if not args.index then
         result.failed = true
-        result.msg = "Missing parameter: index"
-        return
+        result.msg = "missing parameter: index"
+        return result
     end
 
-    local mcursor = uci.cursor()
+    local cursor = uci.cursor()
 
-    if args.dnsname then
-        if args.dnsname ~= mcursor:get("vtun", "network", "dns") then
-            mcursor:set("vtun", "network", "dns", args.dnsname)
+    if args.dns_name then
+        if args.dnsname ~= cursor:get("vtun", "@network[0]", "dns") then
+            cursor:set("vtun", "@network[0]", "dns", args.dns_name)
             result.changed = true
         end
     end
     if args.network then
-        if args.network ~= mcursor:get("vtun", "network", "start") then
-            if not args.network:match("^172%.31%.") then
-                result.failed = true;
-                result.msg = "Bad network prefix"
-                return
-            end
-            mcursor:set("vtun", "network", "start", args.network)
-            result.change = true
+        if not args.network:match("^172%.31%.") then
+            result.failed = true
+            result.msg = "Bad network prefix"
+            return result
+        end
+        if args.network ~= cursor:get("vtun", "@network[0]", "start") then
+            cursor:set("vtun", "@network[0]", "start", args.network)
+            result.changed = true
         end
     end
 
-    if args.state == "present" then
-
-    else if args.state == "absent" then
-
-    else
+    local client = "client_" .. args.index
+    local contact = args.comment or ""
+    local enabled = args.enable == false and "0" or "1"
+    local ip3, ip4 = cursor:get("vtun", "@network[0]", "start"):match("^(%d+%.%d+%.%d+%.)(%d+)$")
+    local name = args.name:upper()
+    ip4 = tonumber(ip4) + 4 * tonumber(args.index)
+    if ip4 >= 251 then
         result.failed = true
-        result.msg = "Bad state"
+        result.msg = "too many tunnels: " .. args.index
+        return result
     end
 
-    args.name
-    args.password
-    args.comment
-    args.state
-    args.active
-    args.index
+    if not cursor:get("vtun", client) or
+       name ~= cursor:get("vtun", client, "name") or
+       args.password ~= cursor:get("vtun", client, "passwd") or
+       contact ~= (cursor:get("vtun", client, "contact") or "") or 
+       enabled ~= cursor:get("vtun", client, "enabled") then
+        cursor:set("vtun", client, "name", name)
+        cursor:set("vtun", client, "passwd", args.password)
+        cursor:set("vtun", client, "contact", contact)
+        cursor:set("vtun", client, "enabled", enabled)
+        cursor:set("vtun", client, "netip", ip3 .. ip4)
+        cursor:set("vtun", client, "clientip", ip3 .. (ip4 + 1))
+        cursor:set("vtun", client, "serverip", ip3 .. (ip4 + 2))
+        cursor:set("vtun", client, "node", name .. "-" .. (ip3 .. ip4):gsub("%.", "-"))
+        result.changed = true
+    end
 
     if result.changed then
+        cursor:commit("vtun")
         local r = io.open("/etc/config/vtun", "r")
         if r then
             local w = io.open("/etc/config.mesh/vtun", "w")

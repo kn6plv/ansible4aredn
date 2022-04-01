@@ -7,7 +7,7 @@ function execute(args)
 
     if not args.paths or not args.patterns then
         result.failed = true
-        result.msg = "Bad arguments"
+        result.msg = "bad parameters"
     else
         local files = {}
         local cmd = "find "
