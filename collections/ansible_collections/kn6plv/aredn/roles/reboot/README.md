@@ -1,1 +1,3 @@
-# Schedule a node reboot
+# aredn.reboot
+## Description
+Schedule a node reboot

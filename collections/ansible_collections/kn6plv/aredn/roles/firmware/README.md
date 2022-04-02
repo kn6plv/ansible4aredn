@@ -1,1 +1,3 @@
-# Upgrade firmware
+# aredn.firmware
+## Description
+Upgrade node firmware

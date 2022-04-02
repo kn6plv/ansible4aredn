@@ -39,6 +39,10 @@ None
 * kn6plv.aredn.tunnelserver
 * kn6plv.aredn.wan
 
+### Plugins
+
+* kn6plv.aredn.firmware
+
 ### Playbooks
 
 * kn6plv.aredn.common
