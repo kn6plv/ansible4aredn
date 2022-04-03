@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "firmware"
+  author: "Tim Wilkinson"
+  description: "Check and update firmware"

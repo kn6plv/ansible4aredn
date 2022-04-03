@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "setup"
+  author: "Tim Wilkinson"
+  description: "All the basic node setup"

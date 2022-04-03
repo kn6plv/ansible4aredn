@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "reboot"
+  author: "Tim Wilkinson"
+  description: "Schedule a node reboot at the end of the playbook"

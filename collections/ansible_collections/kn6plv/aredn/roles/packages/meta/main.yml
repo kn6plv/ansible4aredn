@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "packages"
+  author: "Tim Wilkinson"
+  description: "Install and update packages"

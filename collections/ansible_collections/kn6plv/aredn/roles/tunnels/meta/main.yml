@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "tunnels"
+  author: "Tim Wilkinson"
+  description: "Configure server and client tunnels"

@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "common"
+  author: "Tim Wilkinson"
+  description: "Always include to automatically perform common node update tasks"

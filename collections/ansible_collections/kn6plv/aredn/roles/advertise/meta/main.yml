@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "advertise"
+  author: "Tim Wilkinson"
+  description: "Advertise a service"
