@@ -15,7 +15,21 @@
     cmd: /usr/local/bin/node-setup -p -a mesh
   listen: update config
 
-- name: Restart OLSRD
+- name: Restart dnsmasq
+  service:
+    name: dnsmasq
+    state: restarted
+  when: not rebooting
+  listen: update config
+
+- name: Restart firewall
+  service:
+    name: firewall
+    state: restarted
+  when: not rebooting
+  listen: update config
+
+- name: Restart olsrd
   service:
     name: olsrd
     state: restarted
