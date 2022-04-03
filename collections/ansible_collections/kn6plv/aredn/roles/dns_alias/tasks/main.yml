@@ -3,5 +3,5 @@
     name: "{{ item.name }}"
     address: "{{ item.address }}"
     state: "{{ item.state | default('present') }}"
-  loop: "{{ dnsalias | default([]) }}"
+  loop: "{{ dns_alias | default([]) }}"
   notify: update config"

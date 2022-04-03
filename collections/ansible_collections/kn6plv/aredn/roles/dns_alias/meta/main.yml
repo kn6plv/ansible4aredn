@@ -1,5 +1,5 @@
 ---
 galaxy_info:
-  role_name: "dnsalias"
+  role_name: "dns_alias"
   author: "Tim Wilkinson"
   description: "Add a dns alias"
