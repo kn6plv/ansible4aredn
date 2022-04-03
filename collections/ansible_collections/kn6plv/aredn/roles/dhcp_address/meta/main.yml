@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "dhcp_address"
+  author: "Tim Wilkinson"
+  description: "Define a MAC address to hostname and IP address mapping"

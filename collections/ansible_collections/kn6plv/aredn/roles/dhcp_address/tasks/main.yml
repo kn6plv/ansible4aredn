@@ -1,0 +1,9 @@
+- name: Mac address to hostname/ip mapping
+  dhcpaddress:
+    name: "{{ item.name }}"
+    address: "{{ item.address }}"
+    macaddress: "{{ item.macaddress }}"
+    propagate: "{{ item.propagate | default(false) }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ dhcp_address | default([]) }}"
+  notify: update config
