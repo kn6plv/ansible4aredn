@@ -1,5 +1,32 @@
 #! /usr/bin/lua
 
+DOCUMENTATION = [[
+---
+module: firmware
+short_description: Check and update node firmware
+description:
+  - Check and update node firmware to a specific version
+  version:
+    description:
+      - Check the node's current firmware against the given version (either 'release' or 'nightly')
+        and update if different. The node will download the correct firmware if internet access
+        is available.
+    type: str
+  file:
+    description:
+      - If a file is given, this is new firmware to upgrade the node with (so no internet access
+        is required).
+    type: str
+  shutdown_services:
+    description:
+      - Array of extra services to shutdown before the upgrade process begins (to free up RAM)
+    type: array of str
+notes:
+  - None
+authors:
+   - Tim Wilkinson KN6PLV <tim.j.wilkinson@gmail.com
+]]
+
 local http = require("socket.http")
 local json = require("luci.jsonc")
 local uci = require("uci")

@@ -1,5 +1,38 @@
 #! /usr/bin/lua
 
+DOCUMENTATION = [[
+---
+module: basics
+short_description: Manage the basic setup of a node
+description:
+  - Manage the basic setup of a node
+options:
+  description_node:
+    description:
+      - Human readable description of the node, it's purpose and location, etc.
+    type: str
+  ntp_server:
+    description:
+      - Default NTP server to use to keep the node's time correct
+    type: str
+  timezone:
+    description:
+      - Timezone for the node
+    type: str
+  lat_lon:
+    description:
+      - Comma seperated latitude and longitude of the node's location
+    type: str
+  gridsquare:
+    description:
+      - Gridsquare location of the node
+    type: str
+notes:
+  - Corresponds to the basic setup information found on an AREDN node's setup page.
+authors:
+   - Tim Wilkinson KN6PLV <tim.j.wilkinson@gmail.com
+]]
+
 local uci = require("uci")
 
 function execute(args)
