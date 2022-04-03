@@ -12,19 +12,19 @@ function execute(args)
 
     if not args.interface then
         result.failed = true
-        result.msg = "Missing interface"
+        result.msg = "missing interface"
     elseif not args.type or not (args.type == "tcp" or args.type == "udp" or args.type == "both") then
         result.failed = true
-        result.msg = "Type must be 'tcp', 'udp' or 'both'"
+        result.msg = "type must be 'tcp', 'udp' or 'both'"
     elseif not args.port then
         result.failed = true
-        result.msg = "Missing outside port"
+        result.msg = "missing outside port"
     elseif not args.address then
         result.failed = true
-        result.msg = "Missing address"
+        result.msg = "missing address"
     elseif not args.lanport then
         result.failed = true
-        result.msg = "Missing lan port"
+        result.msg = "missing lan port"
     else
         for file, tbl in pairs(port_files)
         do
@@ -36,7 +36,20 @@ function execute(args)
             end
         end
 
-        local descriptor = args.interface .. ":" .. args.type .. ":" .. args.port .. ":" .. args.address .. ":" .. args.lanport .. ":1"
+        local address
+        if args.address:match("^%d+%.%d+%.%d+%.%d+$") then
+            address = args.address
+        else
+            local entries = nixio.getaddrinfo(args.address, "inet")
+            if not entries then
+                result.failed = true
+                result.msg = "address lookup failed: " + args.address
+                return result
+            end
+            address = entries[1].address
+        end
+
+        local descriptor = args.interface .. ":" .. args.type .. ":" .. args.port .. ":" .. address .. ":" .. args.lanport .. ":1"
 
         if args.state == "present" then
             for _, tbl in pairs(port_files)

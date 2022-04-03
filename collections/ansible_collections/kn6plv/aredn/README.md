@@ -14,12 +14,14 @@ None
 
 ### Roles
 
+* kn6plv.aredn.advanced
 * kn6plv.aredn.advertise
 * kn6plv.aredn.common
 * kn6plv.aredn.dns_alias
 * kn6plv.aredn.dhcp_address
 * kn6plv.aredn.firmware
 * kn6plv.aredn.packages
+* kn6plv.aredn.port_forward
 * kn6plv.aredn.reboot
 * kn6plv.aredn.setup
 * kn6plv.aredn.tunnels
