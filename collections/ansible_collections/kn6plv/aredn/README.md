@@ -16,7 +16,6 @@ None
 
 * kn6plv.aredn.advanced
 * kn6plv.aredn.advertise
-* kn6plv.aredn.common
 * kn6plv.aredn.dns_alias
 * kn6plv.aredn.dhcp_address
 * kn6plv.aredn.firmware
@@ -48,7 +47,7 @@ None
 
 ### Playbooks
 
-* kn6plv.aredn.common
+* kn6plv.aredn.base
 
 ## Using this collection
 

@@ -16,4 +16,4 @@
       wait_for_connection:
         delay: 10
         timeout: 600
-  when: firmware.version != ansible_distribution_version or (force | default(false))
+  when: firmware.version != ansible_distribution_version or force

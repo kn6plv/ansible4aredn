@@ -6,15 +6,17 @@
     mode: "644"
   delegate_to: localhost
   run_once: true
-  loop: "{{ packages | default([]) }}"
+  loop: "{{ packages }}"
+  when: packages is defined
 
 - name: Copy packages to node
   copy:
     src: "/tmp/{{ item.url | basename }}"
     dest: "/root/{{ item.url | basename }}"
     mode: "644"
-  loop: "{{ packages | default([]) }}"
+  loop: "{{ packages }}"
   register: packagescopy
+  when: packages is defined
 
 - name: Install packages
   opkg:
@@ -24,4 +26,5 @@
     update_cache: true
     cache_valid_time: 604800 # 1 week
     reinstall: "{{ packagescopy.changed }}"
-  loop: "{{ packages | default([]) }}"
+  loop: "{{ packages }}"
+  when: packages is defined

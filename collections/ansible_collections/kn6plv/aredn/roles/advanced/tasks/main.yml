@@ -1,3 +1,7 @@
+- include_role:
+    name: base
+  when: kn6plv_aredn_base_loaded is not defined
+
 - name: Advanced configuration
   advconfig:
     name: "{{ item.name }}"
