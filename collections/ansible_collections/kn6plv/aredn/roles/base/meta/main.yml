@@ -1,5 +1,0 @@
----
-galaxy_info:
-  role_name: "base"
-  author: "Tim Wilkinson"
-  description: "Always include to automatically for common tasks and handlers"
