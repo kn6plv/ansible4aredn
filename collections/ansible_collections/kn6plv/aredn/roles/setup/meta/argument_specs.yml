@@ -1,0 +1,73 @@
+argument_specs:
+  main:
+    short_description: All the basic node setup
+    options:
+      description:
+        description: Description text for the node
+      location:
+        description: Latitude, Longitude comma pair of coordinates
+      timezone:
+        description: Timezone (in Linux X/Y format)
+      ntp_server:
+        description: Default NTP server for time sync
+      mesh:
+        description: MESH configuration
+        type: dict
+        options:
+          enable:
+            description: Mesh RF is enabled
+          address:
+            description: 10.X.X.X address of of the mesh
+          ssid:
+            description: Mesh SSID prefix
+            default: "AREDN"
+          channel:
+            description: Channel for this node
+          channel_width:
+            description: Channel width for this node
+          tx_power:
+            description: Transmit power
+            default: "max"
+          distance:
+            description: Distance to other nodes
+            default: "auto"
+      lan:
+        description: LAN configuration
+        type: dict
+        options:
+          enable:
+            description: Enable the DHCP server
+            type: bool
+          hosts:
+            description: Number of hosts DHCP server supports
+            choices: [ "nat", "1", "3", "5", "13", "29"]
+          address:
+            description: 10.X.X.X base for DHCP addresses (NAT mode)
+          netmask:
+            description: LAN netmask (nat mode)
+          start:
+            description: DHCP start address (nat mode)
+          end:
+            description: DHCP end address (nat mode)
+      wan:
+        description: WAN configuration
+        type: dict
+        options:
+          enable:
+            description: Enable direct WAN access
+          protocol:
+            description: WAN address static of found using DHCP
+            choices: [ "static", "dhcp" ]
+          address:
+            description: WAN address (static mode)
+          netmask:
+            description: WAN netmask (static mode)
+          gateway:
+            description: Default route (static mode) 
+          dns:
+            description: two comma seperated DNS servers
+          allow_mesh:
+            type: bool
+            description: Allow MESH traffic access to the WAN network
+          allow_lan:
+            description: Allow LAN traffic access to the WAN network

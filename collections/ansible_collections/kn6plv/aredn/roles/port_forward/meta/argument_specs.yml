@@ -1,0 +1,25 @@
+argument_specs:
+  main:
+    short_description: Forward port between networks
+    options:
+      interface:
+        description: "Source network"
+        default: "wan"
+      type:
+        description: "Type of port to forward"
+        required: true
+        choice: [ "tcp", "udp", "both" ]
+        default: "both"
+      port:
+        description: "Port on source network"
+        required: true
+      address:
+        description: "Address on target (LAN) network"
+        default: "localhost"
+      lanport:
+        description: "Port on LAN network"
+      state:
+            description: "Make sure port forward is present or not"
+            choices: [ "present", "absent" ]
+            default: "present"
+            required: true

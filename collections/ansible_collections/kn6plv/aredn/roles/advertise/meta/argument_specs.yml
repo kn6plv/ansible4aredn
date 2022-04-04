@@ -1,0 +1,31 @@
+argument_specs:
+  main:
+    short_description: Advertise services
+    options:
+      advertise:
+        description: List of services to advertise
+        type: list
+        element: dict
+        options:
+          name:
+            description: "Name the service will be published with"
+            required: true
+          url:
+            description: "URL on the MESH of the service"
+          link:
+            desciption: "Service will be displayed as a hyperlink"
+          protocol:
+            description: "Protocol of the service (if URL not used)"
+          hostname:
+            description: "Hostname of the service (if URL not used)"
+          port:
+            description: "Port of the service (if URL not used)"
+            type: int
+          path:
+            description: "Path of the serice (if URL not used)"
+          state:
+            description: "Make sure service is present or not"
+            choices: [ "present", "absent" ]
+            default: "present"
+            required: true
+

@@ -4,18 +4,18 @@
 
 - name: Configure tunnel server
   tunnelserver:
-    dnsname: "{{ tunnel_server.dns_name }}"
-    network: "{{ tunnel_server.network }}"
+    dnsname: "{{ server.dns_name }}"
+    network: "{{ server.network }}"
     name: "{{ item.name }}"
     password: "{{ item.password }}"
     comment: "{{ item.comment | default('') }}"
     enable: "{{ item.enable | default(true) }}"
     index: "{{ idx }}"
-  loop: "{{ tunnel_server.tunnels }}"
+  loop: "{{ server.tunnels | default([]) }}"
   loop_control:
     index_var: idx
   notify: update tunnels
-  when: tunnel_server is defined
+  when: server is defined
 
 - name: Configure tunnel clients
   tunnelclient:
@@ -25,6 +25,6 @@
     comment: "{{ item.comment | default('') }}"
     state: "{{ item.state | default('present') }}"
     enable: "{{ item.enable | default(true) }}"
-  loop: "{{ tunnel_clients }}"
+  loop: "{{ clients | default([]) }}"
   notify: update tunnels
-  when: tunnel_clients is defined
+  when: clients is defined

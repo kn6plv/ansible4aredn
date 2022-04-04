@@ -1,0 +1,20 @@
+argument_specs:
+  main:
+    short_description: Create DNS aliases
+    options:
+      dns_alias:
+        type: list
+        element: dict
+        description: "List of DNS aliases"
+        options:
+          name:
+            description: "Hostname"
+            required: true
+          address:
+            description: "IP Address of known hostname"
+            required: true
+          state:
+            description: "Make sure alias is present or not"
+            choices: [ "present", "absent" ]
+            default: "present"
+            required: true

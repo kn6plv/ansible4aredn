@@ -1,0 +1,12 @@
+argument_specs:
+  main:
+    short_description: Download and update firmware
+    options:
+      version:
+        description: Firmware version to install
+        choices: [ "release", "nightly" ]
+        default: "release"
+      force:
+        description: Force firmware update even if version required already installed
+        type: bool
+        default: false

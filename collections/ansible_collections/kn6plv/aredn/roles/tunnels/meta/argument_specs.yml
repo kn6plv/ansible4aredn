@@ -1,0 +1,55 @@
+argument_specs:
+  main:
+    short_description: Server and client tunnels
+    options:
+      server:
+        description: "List of tunnels to connect to this node"
+        type: dict
+        options:
+          dns_name:
+            description: "Internet DNS name of this tunnel server"
+            required: true
+          network:
+            description: "Base IP address for tunnels"
+            required: true
+          tunnels:
+            description: "List of tunnels"
+            type: list
+            element: dict
+            options:
+              name:
+                description: "Name of tunnel"
+                required: true
+              password:
+                description: "Tunnel password"
+                required: true
+              comment:
+                description: "Comment or contact information"
+                default: ""
+              enable:
+                description: "Enable tunnel"
+                type: bool
+                default: true
+      clients:
+        description: "List of tunnels to connect to other nodes"
+        type: list
+        element: dict
+        options:
+          name:
+            description: "Name of tunnel"
+            required: true
+          password:
+            description: "Tunnel password"
+            required: true
+          comment:
+           description: "Comment or contact information"
+           default: ""
+          enable:
+            description: "Enable tunnel"
+            type: bool
+            default: true
+          state:
+            description: "Make sure tunnel is present or not"
+            choices: [ "present", "absent" ]
+            default: "present"
+            required: true

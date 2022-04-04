@@ -10,5 +10,6 @@
     address: "{{ item.address | default('localhost') }}"
     lanport: "{{ item.lanport | item.port }}"
     state: "{{ item.state | default('present') }}"
-  loop: "{{ port_forward | default([]) }}"
+  loop: "{{ port_forward }}"
   notify: update config
+  when: port_forward is defined

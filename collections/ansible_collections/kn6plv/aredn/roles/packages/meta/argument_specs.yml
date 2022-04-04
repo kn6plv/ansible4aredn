@@ -1,0 +1,17 @@
+argument_specs:
+  main:
+    short_description: Install and update packages
+    options:
+      packages:
+        description: List of packages to install, update or remove
+        type: list
+        elements: dict
+        options:
+          url:
+            description: URL of the package to download and install
+          force:
+            description: Force the package to be reinstalled even if currently installed
+            type: bool
+          state:
+            description: Whether the package should be present or absent
+            options: [ "present", "absent" ]

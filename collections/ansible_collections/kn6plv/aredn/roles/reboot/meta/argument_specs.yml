@@ -1,0 +1,3 @@
+argument_specs:
+  main:
+    short_description: Reboot node at end of play

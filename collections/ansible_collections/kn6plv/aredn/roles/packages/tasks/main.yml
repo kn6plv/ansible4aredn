@@ -25,6 +25,6 @@
     state: "{{ item.state | default('present') }}"
     update_cache: true
     cache_valid_time: 604800 # 1 week
-    reinstall: "{{ packagescopy.changed }}"
+    reinstall: "{{ packagescopy.changed or (item.force | default(false)) }}"
   loop: "{{ packages }}"
   when: packages is defined

@@ -1,0 +1,27 @@
+argument_specs:
+  nain:
+    short_description: MAC address to hostname/ip mappings
+    options:
+      dhcp_address:
+        type: list
+        element: dict
+        description: "List of mappings"
+        options:
+          name:
+            description: "Hostname"
+            required: true
+          address:
+            description: "IP Address or known hostname"
+            required: true
+          macaddress:
+            description: "MAC Address"
+            required: true
+          propagate:
+            description: "Propogate he hostname across the MESH"
+            type: bool
+            default: true
+          state:
+            description: "Make sure mapping is present or not"
+            choices: [ "present", "absent" ]
+            default: "present"
+            required: true

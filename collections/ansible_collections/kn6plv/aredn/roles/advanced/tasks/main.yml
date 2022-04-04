@@ -6,5 +6,7 @@
   advconfig:
     name: "{{ item.name }}"
     value: "{{ item.value }}"
-  loop: "{{ advanced | default([]) }}"
+  loop: "{{ advanced }}"
   notify: need reboot
+  when: advanced is defined
+  
