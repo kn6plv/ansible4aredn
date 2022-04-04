@@ -21,7 +21,7 @@ __update.yml__
 
     # Essentials
     - role: setup
-      description: "{{ My AREDN node (' + ansible_hardware_model + ')') }}"
+      description: "{{ 'My AREDN node (' + ansible_hardware_model + ')') }}"
       location: 37.0, -122.0
       timezone: America/Los_Angeles
       ntp_server: pool.ntp.org
