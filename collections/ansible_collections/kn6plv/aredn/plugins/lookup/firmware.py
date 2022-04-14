@@ -48,6 +48,8 @@ class LookupModule(LookupBase):
         # Board type naming inconsistencies
         if re.match(r"^cpe", boardtype):
             boardtype = boardtype = "tplink," + boardtype
+        if re.match(r"^rocket-m-xw", boardtype):
+            boardtype = boardtype = "ubnt-" + boardtype
 
         ret = []
         for version in terms:
@@ -90,17 +92,17 @@ class LookupModule(LookupBase):
                 filename = firmware_dir + ("aredn-" + version + "-" + board + "-" + boardtype + "-squashfs-sysupgrade.bin").replace("/", "-").replace(",", "-")
                 if not os.path.exists(filename):
                     # Find matching firmware download
-                    for profile in profiles["profiles"].values():
-                        for id in profile["supported_devices"]:
-                            if id == boardtype:
-                                for v in profile["images"]:
-                                    if v["type"] == "sysupgrade":
-                                        firmware = base_url + "/" + v["name"]
-                                        sha = v["sha256"]
-                                        break
-                                break
+                    firmware = False
+                    for pid in profiles["profiles"].keys():
+                        profile = profiles["profiles"][pid]
+                        if boardtype == pid or boardtype in profile["supported_devices"]:
+                            for v in profile["images"]:
+                                if v["type"] == "sysupgrade":
+                                    firmware = base_url + "/" + v["name"]
+                                    sha = v["sha256"]
+                                    break
                     if not firmware:
-                        raise AnsibleError("firmware not found")
+                        raise AnsibleError("firmware not found: " + boardtype)
 
                     # Fetch and verify firmware
                     resp = requests.get(firmware)
