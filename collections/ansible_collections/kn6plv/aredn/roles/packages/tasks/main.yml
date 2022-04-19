@@ -19,12 +19,6 @@
   when: packages is defined
 
 - name: Install packages
-  opkg:
-    name: "{{ item.url | basename }}"
-    pkg: "/root/{{ item.url | basename }}"
-    state: "{{ item.state | default('present') }}"
-    update_cache: true
-    cache_valid_time: 604800 # 1 week
-    reinstall: "{{ packagescopy.changed or (item.force | default(false)) }}"
+  include_tasks: install.yml
   loop: "{{ packages }}"
   when: packages is defined

@@ -1,6 +1,6 @@
 namespace: kn6plv
 name: aredn
-version: 0.0.6
+version: 0.0.7
 readme: README.md
 authors:
   - Tim Wilkinson KN6PLV <tim.j.wilkinson@gmail.com>

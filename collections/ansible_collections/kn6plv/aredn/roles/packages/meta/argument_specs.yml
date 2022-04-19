@@ -15,3 +15,6 @@ argument_specs:
           state:
             description: Whether the package should be present or absent
             options: [ "present", "absent" ]
+          wait:
+            description: Wait for node to reinitialize
+            type: bool
