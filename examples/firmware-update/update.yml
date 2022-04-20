@@ -1,0 +1,7 @@
+- import_playbook: kn6plv.aredn.base
+
+- hosts: all
+  serial: 1
+  roles:
+    - role: firmware
+      version: release
