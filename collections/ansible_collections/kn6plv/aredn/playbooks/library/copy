@@ -10,6 +10,9 @@ function execute(args)
         result.msg = "src not found: " .. args.src
     elseif not nixio.fs.stat(args.dest) or os.execute("cmp -s '" .. args.src .. "' '" .. args.dest .. "'") ~= 0 then
         if os.execute("mv -f '" .. args.src .. "' '" .. args.dest .. "'") == 0 then
+            if args.mode then
+                nixio.fs.chmod(args.dest, args.mode)
+            end
             result.changed = true
         else
             result.failed = true
