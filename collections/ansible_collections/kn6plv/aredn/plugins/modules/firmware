@@ -27,7 +27,6 @@ authors:
    - Tim Wilkinson KN6PLV <tim.j.wilkinson@gmail.com
 ]]
 
-local http = require("socket.http")
 local json = require("luci.jsonc")
 local uci = require("uci")
 local nixio = require("nixio")
@@ -52,9 +51,9 @@ function stop_services(extra_services)
     do
         for s, p in pairs(svcs)
         do
-            os.execute("killall " .. p)
+            os.execute("exec killall -9 " .. p)
             if nixio.fs.stat("/etc/init.d/" .. s) then
-                os.execute("/etc/init.d/" .. s .. " stop")
+                os.execute("exec /etc/init.d/" .. s .. " stop")
             end
         end
     end
@@ -115,9 +114,10 @@ function execute(args)
         sha256 = args.sha256
         stop_services(args.shutdown_services)
         if args.file ~= "/tmp/firmware" then
-            os.execute("mv -f '" .. args.file .. "' /tmp/firmware")
+            os.execute("exec mv -f '" .. args.file .. "' /tmp/firmware")
         end
     else
+        local http = require("socket.http")
         local base_url
         if args.version == "nightly" then
             -- Nightlies are easy to find
@@ -222,7 +222,7 @@ function execute(args)
         -- Fetch and verify the firmware
         local node = cursor:get("hsmmmesh", "settings", "node") or "Node"
         stop_services(args.shutdown_services)
-        if os.execute("wget -U 'node: " .. node .. "' -O /tmp/firmware " .. result.firmware .. " > /dev/null 2>&1") ~= 0 then
+        if os.execute("exec wget -U 'node: " .. node .. "' -O /tmp/firmware " .. result.firmware .. " > /dev/null 2>&1") ~= 0 then
             result.failed = true
             result.msg = "failed to download firmware"
             return result
@@ -259,7 +259,7 @@ function execute(args)
                 fin:close()
                 cursor:set("hsmmmesh", "settings", "nodeupgraded", "1")
                 cursor:commit("hsmmmesh")
-                if os.execute("tar -czf /tmp/arednsysupgradebackup.tgz -T /tmp/sysupgradefilelist > /dev/null 2>&1") == 0 then
+                if os.execute("exec tar -czf /tmp/arednsysupgradebackup.tgz -T /tmp/sysupgradefilelist > /dev/null 2>&1") == 0 then
                     backup = true
                 else
                     cursor:set("hsmmmesh", "settings", "nodeupgraded", "0")
@@ -283,9 +283,9 @@ function execute(args)
     elseif pid == 0 then
         nixio.setsid() -- Stop ansible killing the child on the way out
         if backup then
-            os.execute("/sbin/sysupgrade -f /tmp/arednsysupgradebackup.tgz -q /tmp/firmware > /dev/null 2>&1")
+            os.execute("exec /sbin/sysupgrade -f /tmp/arednsysupgradebackup.tgz -q /tmp/firmware > /dev/null 2>&1")
         else
-            os.execute("/sbin/sysupgrade -q -n /tmp/firmware > /dev/null 2>&1")
+            os.execute("exec /sbin/sysupgrade -q -n /tmp/firmware > /dev/null 2>&1")
         end
         os.exit()
     else
@@ -301,8 +301,6 @@ function execute(args)
 end
 
 -- Boilerplate below --
-
-local json = require("luci.jsonc")
 
 local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
 if not success then
