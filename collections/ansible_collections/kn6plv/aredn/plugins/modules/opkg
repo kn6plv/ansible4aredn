@@ -62,12 +62,27 @@ function execute(args)
             elseif args.name then
                 options = options .. args.name
             end
-            local rc, output = capture("opkg install " .. options)
-            if rc == 0 then
-                result.changed = true
+            if args.nowait then
+                local pid = nixio.fork()
+                if pid == -1 then
+                    result.failed = true
+                    result.msg = "failed to fork"
+                elseif pid == 0 then
+                    nixio.setsid() -- Stop ansible killing the child on the way out
+                    os.execute("opkg install " .. options)
+                    os.exit()
+                else
+                    result.changed = true
+                    result.msg = "installing in background"
+                end
             else
-                result.failed = true
-                result.msg = output
+                local rc, output = capture("opkg install " .. options)
+                if rc == 0 then
+                    result.changed = true
+                else
+                    result.failed = true
+                    result.msg = output
+                end
             end
         end
     elseif args.state == "absent" then
