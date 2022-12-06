@@ -3,7 +3,7 @@ argument_specs:
     short_description: Advertise services
     options:
       advertise:
-        description: List of services to advertise
+        description: "List of services to advertise"
         type: list
         element: dict
         options:

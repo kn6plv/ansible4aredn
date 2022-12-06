@@ -1,0 +1,5 @@
+---
+galaxy_info:
+  role_name: "base"
+  author: "Tim Wilkinson"
+  description: "Base configuration options"
