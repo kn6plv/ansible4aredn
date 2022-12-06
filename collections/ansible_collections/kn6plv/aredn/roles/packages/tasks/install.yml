@@ -9,6 +9,6 @@
   register: install
 - name: Wait for node to reinitialize
   wait_for_connection:
-    delay: 2
+    delay: 10
     timeout: 600
   when: install.changed and (item.wait | default(false))
