@@ -1,5 +1,5 @@
 argument_specs:
-  nain:
+  main:
     short_description: MAC address to hostname/ip mappings
     options:
       dhcp_address:
