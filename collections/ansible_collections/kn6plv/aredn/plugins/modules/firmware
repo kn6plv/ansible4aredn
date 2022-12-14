@@ -19,8 +19,9 @@ description:
     type: str
   shutdown_services:
     description:
-      - Array of extra services to shutdown before the upgrade process begins (to free up RAM)
-    type: array of str
+      - Array of extra services to shutdown before the upgrade process begins (to free up RAM). False prevents
+        any services being stopped.
+    type: array of str or False
 notes:
   - None
 authors:
@@ -47,13 +48,15 @@ local services = {
 }
 
 function stop_services(extra_services)
-    for _, svcs in ipairs({ services, extra_services or {} })
-    do
-        for s, p in pairs(svcs)
+    if extra_services ~= false then
+        for _, svcs in ipairs({ services, extra_services or {} })
         do
-            os.execute("exec killall -9 " .. p)
-            if nixio.fs.stat("/etc/init.d/" .. s) then
-                os.execute("exec /etc/init.d/" .. s .. " stop")
+            for s, p in pairs(svcs)
+            do
+                os.execute("exec killall -9 " .. p .. " > /dev/null 2>&1")
+                if nixio.fs.stat("/etc/init.d/" .. s) then
+                    os.execute("exec /etc/init.d/" .. s .. " stop > /dev/null 2>&1")
+                end
             end
         end
     end
@@ -62,44 +65,10 @@ end
 function execute(args)
     local result = { changed = false, failed = false }
 
-    local version
-    local board
-    for line in io.lines("/etc/os-release")
-    do
-        local r = line:match('^VERSION="(.*)"$')
-        if r then
-            version = r
-        end
-        r = line:match('^OPENWRT_BOARD="(.*)"$')
-        if r then
-            board = r
-        end
-    end
-
-    if not version then
-        result.failed = true
-        result.msg = "cannot find current version"
-        return result
-    end
-    if not args.version and not args.file then
-        result.failed = true
-        result.msg = "no version specified"
-        return result
-    end
-    if args.version == version then
-        result.version = version
-        return result
-    end
-
-    if not board then
-        result.failed = true
-        result.msg = "cannot find board"
-        return result
-    end
-
     local cursor = uci.cursor("/etc/local/uci")
     local profiles
     local sha256
+    local version
 
     if args.file then
         if not nixio.fs.stat(args.file) then
@@ -117,6 +86,40 @@ function execute(args)
             os.execute("exec mv -f '" .. args.file .. "' /tmp/firmware")
         end
     else
+        local board
+        for line in io.lines("/etc/os-release")
+        do
+            local r = line:match('^VERSION="(.*)"$')
+            if r then
+                version = r
+            end
+            r = line:match('^OPENWRT_BOARD="(.*)"$')
+            if r then
+                board = r
+            end
+        end
+
+        if not version then
+            result.failed = true
+            result.msg = "cannot find current version"
+            return result
+        end
+        if not args.version and not args.file then
+            result.failed = true
+            result.msg = "no version specified"
+            return result
+        end
+        if args.version == version then
+            result.version = version
+            return result
+        end
+
+        if not board then
+            result.failed = true
+            result.msg = "cannot find board"
+            return result
+        end
+
         local http = require("socket.http")
         local base_url
         if args.version == "nightly" then
@@ -186,7 +189,7 @@ function execute(args)
 
         -- Otherwise, look for the appropriate firmware file
         local boardtype = "unknown"
-        local f = io.popen("/usr/local/bin/get_hardwaretype")
+        local f = io.popen("exec /usr/local/bin/get_hardwaretype")
         if f then
             boardtype = f:read("*a"):match("(%S+)")
             f:close()
@@ -229,7 +232,7 @@ function execute(args)
         end
     end
 
-    local f = io.popen("sha256sum /tmp/firmware")
+    local f = io.popen("exec sha256sum /tmp/firmware")
     if f then
         if f:read("*a"):match("^(%S+)") == sha256 then
             sha256 = nil
@@ -276,29 +279,27 @@ function execute(args)
     end
 
     -- Do the upgrade
-    local pid = nixio.fork()
-    if pid == -1 then
-        result.failed = true
-        result.msg = "failed to fork upgrade process"
-    elseif pid == 0 then
-        nixio.setsid() -- Stop ansible killing the child on the way out
-        if backup then
-            os.execute("exec /sbin/sysupgrade -f /tmp/arednsysupgradebackup.tgz -q /tmp/firmware > /dev/null 2>&1")
-        else
-            os.execute("exec /sbin/sysupgrade -q -n /tmp/firmware > /dev/null 2>&1")
-        end
-        os.exit()
+    if backup then
+        os.execute("setsid -c /sbin/sysupgrade -f /tmp/arednsysupgradebackup.tgz -q /tmp/firmware > /dev/null 2>&1 &")
     else
-        result.changed = true
-        if profiles then
-            result.version = profiles.version_number
-        end
-        result.old_version = version
-        result.msg = "upgrading" .. (backup and " with backup" or " with reset")
+        os.execute("setsid -c /sbin/sysupgrade -q -n /tmp/firmware > /dev/null 2>&1 &")
     end
+
+    result.changed = true
+    if profiles then
+        result.version = profiles.version_number
+    end
+    if version then
+        result.old_version = version
+    end
+    result.msg = "upgrading" .. (backup and " with backup" or " with reset")
 
     return result
 end
+
+local dc = io.open("/proc/sys/vm/drop_caches", "w")
+dc:write("3")
+dc:close()
 
 -- Boilerplate below --
 
