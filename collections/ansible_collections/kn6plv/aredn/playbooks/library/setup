@@ -2,6 +2,7 @@
 
 local nixio = require("nixio")
 local uci = require("uci")
+require("aredn.hardware")
 
 function execute(args)
     local ubiquity_map = {
@@ -84,12 +85,8 @@ function execute(args)
         end
     end
 
-    local f = io.popen("/usr/local/bin/get_hardwaretype")
-    if f then
-        facts.ansible_hardware_type = f:read("*a"):match("(.+)\n")
-        f:close()
-    end
-    f = io.popen("/usr/local/bin/get_boardid")
+    facts.ansible_hardware_type =  aredn.hardware.get_board_type():gsub(",", "_")
+    local f = io.popen("/usr/local/bin/get_boardid")
     if f then
         facts.ansible_hardware_model = f:read("*a"):match("(.+)\n")
         f:close()

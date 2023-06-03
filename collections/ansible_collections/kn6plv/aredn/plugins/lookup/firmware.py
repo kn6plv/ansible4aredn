@@ -26,7 +26,7 @@ DOCUMENTATION = """
     - Uses device facts as part of selecting the appropriate firmware.
 """
 
-root = 'http://downloads.arednmesh.org/'
+root = 'http://downloads.arednmesh.org/afs/www/'
 firmware_dir = "/tmp/aredn-firmware/"
 
 os.makedirs(firmware_dir, exist_ok=True)
@@ -56,65 +56,60 @@ class LookupModule(LookupBase):
             # Look for cached versions to avoid network traffic
             filename = firmware_dir + ("aredn-" + version + "-" + board + "-" + boardtype + "-squashfs-sysupgrade.bin").replace("/", "-").replace(",", "-")
             if version == "release" or version == "nightly" or not os.path.exists(filename):
-                if version == 'nightly':
-                    # Select the latest if that's what we want
-                    base_url = root + "snapshots/targets/" + board
-                elif re.match(r"^\d\.\d\.\d\.\d$", version) or version == "release":
-                    # Otherwise make sure we have the specific one we asked for
-                    resp = requests.get(root + "releases/")
+                if re.match(r"^\d\.\d\.\d\.\d$", version) or version == "release" or version == "nightly":
+                    resp = requests.get(root + "config.js")
                     releases = []
                     if resp.status_code != 200:
                         raise AnsibleError("cannot not find versions")
-                    for m in re.finditer(r'href="(\d+\.\d+\.\d+\.\d+)/"', resp.text):
-                        releases.append(m.group(1))
+                    for v in re.finditer(r'versions: ({.+}),', resp.text):
+                        for m in re.finditer(r'\'(.+?)\': \'data/.+?\',', v.group(1)):
+                            releases.append(m.group(1))
                     if len(releases) == 0:
                         raise AnsibleError("no releases")
                     releases.sort()
                     if version == "release":
-                        base_url = root + "releases/" + releases[-1] + "/targets/" + board
+                        version = releases[-1]
+                    elif version == "nightly":
+                        version = releases[0]
                     elif version in releases:
-                        base_url = root + "releases/" + version + "/targets/" + board
+                        pass
                     else:
                         raise AnsibleError("version not found: %s" % version)
                 else:
                     raise AnsibleError("unknown version: %s" % version)
 
-                # Fetch and parse the profiles for the selected update
-                resp = requests.get(base_url + "/profiles.json")
+                resp = requests.get(root + "data/" + version + "/overview.json")
                 if resp.status_code != 200:
-                    raise AnsibleError("cannot read firmware profiles: %s" % (base_url + "/profiles.json"))
-                profiles = resp.json()
+                    raise AnsibleError("cannot read firmware overviews: %s" % (root + "data/" + version + "/overview.json"))
+                overview = resp.json()
+                target = False
+                for profile in overview["profiles"]:
+                    if profile["id"] == boardtype:
+                        target = overview["image_url"].replace("{target}", profile["target"])
+                        resp = requests.get(root + "data/" + version + "/" + profile["target"] + "/" + profile["id"] + ".json")
+                        if resp.status_code != 200:
+                            raise AnsibleError("cannot read firmware profile: %s" % (root + "data/" + version + "/" + profile["target"] + "/" + profile["id"] + ".json"))
+                        profile = resp.json()
+                        for image in profile["images"]:
+                            if image["type"] == "sysupgrade" or image["type"] == "nand-sysupgrade" or image["type"] == "combined":
+                                firmware_url = target + "/" + image["name"]
+                                firmware_sha = image["sha256"]
+                                break
+                        break
+                if not firmware_url:
+                    raise AnsibleError("firmware not found: " + boardtype)
 
-                # Actual version number
-                version = profiles["version_number"]
+                # Fetch and verify firmware
+                resp = requests.get(firmware_url)
+                if resp.status_code != 200:
+                    raise AnsibleError("cannot download firmware")
+                if hashlib.sha256(resp.content).hexdigest() != firmware_sha:
+                    raise AnsibleError("firmware checksum failed")
 
-                # Have we downloaded this already?
-                filename = firmware_dir + ("aredn-" + version + "-" + board + "-" + boardtype + "-squashfs-sysupgrade.bin").replace("/", "-").replace(",", "-")
-                if not os.path.exists(filename):
-                    # Find matching firmware download
-                    firmware = False
-                    for pid in profiles["profiles"].keys():
-                        profile = profiles["profiles"][pid]
-                        if boardtype == pid or boardtype in profile["supported_devices"]:
-                            for v in profile["images"]:
-                                if v["type"] == "sysupgrade":
-                                    firmware = base_url + "/" + v["name"]
-                                    sha = v["sha256"]
-                                    break
-                    if not firmware:
-                        raise AnsibleError("firmware not found: " + boardtype)
-
-                    # Fetch and verify firmware
-                    resp = requests.get(firmware)
-                    if resp.status_code != 200:
-                        raise AnsibleError("cannot download firmware")
-                    if hashlib.sha256(resp.content).hexdigest() != sha:
-                        raise AnsibleError("firmware checksum failed")
-
-                    # Store content in a file
-                    f = open(filename, mode="w+b")
-                    f.write(resp.content)
-                    f.close()
+                # Store content in a file
+                f = open(filename, mode="w+b")
+                f.write(resp.content)
+                f.close()
 
             f = open(filename, mode="r+b")
             sha = hashlib.sha256(f.read()).hexdigest()
