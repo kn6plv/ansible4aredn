@@ -9,7 +9,7 @@ import hashlib
 import os
 from ansible.errors import AnsibleError
 from ansible.plugins.lookup import LookupBase
-from distutils.version import StrictVersion
+from distutils.version import LooseVersion
 
 DOCUMENTATION = """
   lookup: firmware
@@ -69,7 +69,7 @@ class LookupModule(LookupBase):
                             releases.append(m.group(1))
                     if len(releases) == 0:
                         raise AnsibleError("no releases")
-                    releases.sort(key=StrictVersion)
+                    releases.sort(key=LooseVersion)
                     if version == "release":
                         version = releases[-1]
                     elif version == "nightly":
