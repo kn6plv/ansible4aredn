@@ -9,6 +9,7 @@ import hashlib
 import os
 from ansible.errors import AnsibleError
 from ansible.plugins.lookup import LookupBase
+from distutils.version import StrictVersion
 
 DOCUMENTATION = """
   lookup: firmware
@@ -50,6 +51,8 @@ class LookupModule(LookupBase):
             boardtype = boardtype = "tplink," + boardtype
         if re.match(r"^rocket-m-xw", boardtype):
             boardtype = boardtype = "ubnt-" + boardtype
+        if boardtype == "qemu-standard-pc-i440fx-piix-1996":
+            boardtype = "generic"
 
         ret = []
         for version in terms:
@@ -66,7 +69,7 @@ class LookupModule(LookupBase):
                             releases.append(m.group(1))
                     if len(releases) == 0:
                         raise AnsibleError("no releases")
-                    releases.sort()
+                    releases.sort(key=StrictVersion)
                     if version == "release":
                         version = releases[-1]
                     elif version == "nightly":
@@ -83,6 +86,7 @@ class LookupModule(LookupBase):
                     raise AnsibleError("cannot read firmware overviews: %s" % (root + "data/" + version + "/overview.json"))
                 overview = resp.json()
                 target = False
+                firmware_url = False
                 for profile in overview["profiles"]:
                     if profile["id"] == boardtype:
                         target = overview["image_url"].replace("{target}", profile["target"])

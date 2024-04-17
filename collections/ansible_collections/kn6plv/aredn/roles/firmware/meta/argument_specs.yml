@@ -4,7 +4,6 @@ argument_specs:
     options:
       version:
         description: Firmware version to install
-        choices: [ "release", "nightly" ]
         default: "release"
       force:
         description: Force firmware update even if version required already installed
