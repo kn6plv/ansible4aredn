@@ -51,7 +51,7 @@ class LookupModule(LookupBase):
             boardtype = boardtype = "tplink," + boardtype
         if re.match(r"^rocket-m-xw", boardtype):
             boardtype = boardtype = "ubnt-" + boardtype
-        if boardtype == "qemu-standard-pc-i440fx-piix-1996":
+        if re.match(r"^qemu", boardtype) or re.match(r"^vmware", boardtype):
             boardtype = "generic"
 
         ret = []
@@ -59,7 +59,7 @@ class LookupModule(LookupBase):
             # Look for cached versions to avoid network traffic
             filename = firmware_dir + ("aredn-" + version + "-" + board + "-" + boardtype + "-squashfs-sysupgrade.bin").replace("/", "-").replace(",", "-")
             if version == "release" or version == "nightly" or not os.path.exists(filename):
-                if re.match(r"^\d\.\d\.\d\.\d$", version) or version == "release" or version == "nightly":
+                if re.match(r"^\d+\.\d+\.\d+\.\d+$", version) or version == "release" or version == "nightly":
                     resp = requests.get(root + "config.js")
                     releases = []
                     if resp.status_code != 200:

@@ -19,9 +19,8 @@ description:
     type: str
   shutdown_services:
     description:
-      - Array of extra services to shutdown before the upgrade process begins (to free up RAM). False prevents
-        any services being stopped.
-    type: array of str or False
+      - True to shutdown services before the upgrade process begins (to free up RAM).
+    type: bool
 notes:
   - None
 authors:
@@ -35,30 +34,22 @@ local nixio = require("nixio")
 local root = "http://downloads.arednmesh.org/"
 
 local services = {
-    dnsmasq = "dnsmasq",
-    ntpclient = "ntpclient",
-    urngd = "urngd",
-    rpcd = "rpcd",
-    telnet = "telnetd",
-    manager = "manager.lua",
-    log = "logd",
-    uhttpd = "uhttpd",
-    meshntpd = "ntpd",
-    meshchatsync = "meshchatsync"
+    "meshntpd",
+    "meshchatsync",
+    "dnsmasq",
+    "ntpclient",
+    "urngd",
+    "telnet",
+    "manager",
+    "uhttpd",
+    --"log",
+    --"rpcd",
 }
 
-function stop_services(extra_services)
-    if extra_services ~= false then
-        for _, svcs in ipairs({ services, extra_services or {} })
-        do
-            for s, p in pairs(svcs)
-            do
-                os.execute("exec killall -9 " .. p .. " > /dev/null 2>&1")
-                if nixio.fs.stat("/etc/init.d/" .. s) then
-                    os.execute("exec /etc/init.d/" .. s .. " stop > /dev/null 2>&1")
-                end
-            end
-        end
+function stop_services()
+    for _, s in ipairs(services)
+    do
+        os.execute("exec /etc/init.d/" .. s .. " stop > /dev/null 2>&1")
     end
 end
 
@@ -70,6 +61,10 @@ function execute(args)
     local sha256
     local version
 
+    if args.shutdown_services then
+        stop_services()
+        return result
+    end
     if args.file then
         if not nixio.fs.stat(args.file) then
             result.failed = true
@@ -81,7 +76,6 @@ function execute(args)
             result.msg = "missing checksum"
         end
         sha256 = args.sha256
-        stop_services(args.shutdown_services)
         if args.file ~= "/tmp/firmware" then
             os.execute("exec mv -f '" .. args.file .. "' /tmp/firmware")
         end
@@ -224,7 +218,6 @@ function execute(args)
 
         -- Fetch and verify the firmware
         local node = cursor:get("hsmmmesh", "settings", "node") or "Node"
-        stop_services(args.shutdown_services)
         if os.execute("exec wget -U 'node: " .. node .. "' -O /tmp/firmware " .. result.firmware .. " > /dev/null 2>&1") ~= 0 then
             result.failed = true
             result.msg = "failed to download firmware"
