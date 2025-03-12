@@ -69,7 +69,12 @@ class LookupModule(LookupBase):
                             releases.append(m.group(1))
                     if len(releases) == 0:
                         raise AnsibleError("no releases")
-                    releases.sort(key=LooseVersion)
+
+                    # 2025-0311 Bob Iannucci
+                    # Use lexicographic sorting so that releases[-1] (release) and releases[0] (nightly) will be correct
+                    # releases.sort(key=LooseVersion)
+                    releases.sort()
+
                     if version == "release":
                         version = releases[-1]
                     elif version == "nightly":
