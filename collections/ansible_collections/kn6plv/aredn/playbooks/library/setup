@@ -1,169 +1,183 @@
-#! /usr/bin/lua
+#!/usr/bin/ucode
 
-local nixio = require("nixio")
-local uci = require("uci")
-require("aredn.hardware")
+import * as fs from "fs";
+import * as uci from "uci";
+import * as rtnl from "rtnl";
+import * as hardware from "aredn.hardware";
+import * as network from "aredn.network";
 
 function execute(args)
-    local ubiquity_map = {
-        ["0xe005"] = "Ubiquiti NanoStation M5",
-        ["0xe009"] = "Ubiquiti NanoStation Loco M9",
-        ["0xe012"] = "Ubiquiti NanoStation M2",
-        ["0xe035"] = "Ubiquiti NanoStation M3",
-        ["0xe0a2"] = "Ubiquiti NanoStation Loco M2",
-        ["0xe0a5"] = "Ubiquiti NanoStation Loco M5",
-        ["0xe105"] = "Ubiquiti Rocket M5",
-        ["0xe112"] = "Ubiquiti Rocket M2 with USB",
-        ["0xe1b2"] = "Ubiquiti Rocket M2",
-        ["0xe1b5"] = "Ubiquiti Rocket M5",
-        ["0xe1b9"] = "Ubiquiti Rocket M9",
-        ["0xe1c3"] = "Ubiquiti Rocket M3",
-        ["0xe1c5"] = "Ubiquiti Rocket M5 GPS",
-        ["0xe1d2"] = "Ubiquiti Rocket M2 Titanum",
-        ["0xe1d5"] = "Ubiquiti Rocket M5 Titanium GPS",
-        ["0xe202"] = "Ubiquiti Bullet M2 HP",
-        ["0xe205"] = "Ubiquiti Bullet M5",
-        ["0xe212"] = "Ubiquiti airGrid M2",
-        ["0xe215"] = "Ubiquiti airGrid M5",
-        ["0xe232"] = "Ubiquiti NanoBridge M2",
-        ["0xe235"] = "Ubiquiti NanoBridge M5",
-        ["0xe239"] = "Ubiquiti NanoBridge M9",
-        ["0xe242"] = "Ubiquiti airGrid M2 HP",
-        ["0xe243"] = "Ubiquiti NanoBridge M3",
-        ["0xe252"] = "Ubiquiti airGrid M2 HP",
-        ["0xe245"] = "Ubiquiti airGrid M5 HP",
-        ["0xe255"] = "Ubiquiti airGrid M5 HP",
-        ["0xe2b5"] = "Ubiquiti NanoBridge M5",
-        ["0xe2c2"] = "Ubiquiti NanoBeam M2 International",
-        ["0xe2c4"] = "Ubiquiti Bullet M2 XW",
-        ["0xe2d2"] = "Ubiquiti Bullet M2 Titanium HP",
-        ["0xe2d5"] = "Ubiquiti Bullet M5 Titanium",
-        ["0xe302"] = "Ubiquiti PicoStation M2",
-        ["0xe3e5"] = "Ubiquiti PowerBeam M5 XW 300",
-        ["0xe4a2"] = "Ubiquiti AirRouter",
-        ["0xe4b2"] = "Ubiquiti AirRouter HP",
-        ["0xe4d5"] = "Ubiquiti Rocket M5 Titanium",
-        ["0xe4e5"] = "Ubiquiti PowerBeam M5 400",
-        ["0xe6e5"] = "Ubiquiti PowerBeam M5 400-ISO",
-        ["0xe805"] = "Ubiquiti NanoStation M5",
-        ["0xe825"] = "Ubiquiti NanoBeam M5 19",
-        ["0xe835"] = "Ubiquiti AirGrid M5 XW",
-        ["0xe845"] = "Ubiquiti NanoStation Loco M5 XW",
-        ["0xe855"] = "Ubiquiti NanoStation M5 XW",
-        ["0xe865"] = "Ubiquiti LiteBeam M5",
-        ["0xe866"] = "Ubiquiti NanoStation M2 XW",
-        ["0xe867"] = "Ubiquiti NanoStation Loco M2 XW",
-        ["0xe868"] = "Ubiquiti Rocket M2 XW",
-        ["0xe885"] = "Ubiquiti PowerBeam M5 620 XW",
-        ["0xe8a5"] = "Ubiquiti NanoStation Loco M5",
-        ["0xe6b5"] = "Ubiquiti Rocket M5 XW",
-        ["0xe812"] = "Ubiquiti NanoBeam M2 13",
-        ["0xe815"] = "Ubiquiti NanoBeam M5 16",
-        ["0xe1a5"] = "Ubiquiti PowerBridge M5"
-    }
+{
+    const ubiquity_map = {
+        "0xe005": "Ubiquiti NanoStation M5",
+        "0xe009": "Ubiquiti NanoStation Loco M9",
+        "0xe012": "Ubiquiti NanoStation M2",
+        "0xe035": "Ubiquiti NanoStation M3",
+        "0xe0a2": "Ubiquiti NanoStation Loco M2",
+        "0xe0a5": "Ubiquiti NanoStation Loco M5",
+        "0xe105": "Ubiquiti Rocket M5",
+        "0xe112": "Ubiquiti Rocket M2 with USB",
+        "0xe1b2": "Ubiquiti Rocket M2",
+        "0xe1b5": "Ubiquiti Rocket M5",
+        "0xe1b9": "Ubiquiti Rocket M9",
+        "0xe1c3": "Ubiquiti Rocket M3",
+        "0xe1c5": "Ubiquiti Rocket M5 GPS",
+        "0xe1d2": "Ubiquiti Rocket M2 Titanum",
+        "0xe1d5": "Ubiquiti Rocket M5 Titanium GPS",
+        "0xe202": "Ubiquiti Bullet M2 HP",
+        "0xe205": "Ubiquiti Bullet M5",
+        "0xe212": "Ubiquiti airGrid M2",
+        "0xe215": "Ubiquiti airGrid M5",
+        "0xe232": "Ubiquiti NanoBridge M2",
+        "0xe235": "Ubiquiti NanoBridge M5",
+        "0xe239": "Ubiquiti NanoBridge M9",
+        "0xe242": "Ubiquiti airGrid M2 HP",
+        "0xe243": "Ubiquiti NanoBridge M3",
+        "0xe252": "Ubiquiti airGrid M2 HP",
+        "0xe245": "Ubiquiti airGrid M5 HP",
+        "0xe255": "Ubiquiti airGrid M5 HP",
+        "0xe2b5": "Ubiquiti NanoBridge M5",
+        "0xe2c2": "Ubiquiti NanoBeam M2 International",
+        "0xe2c4": "Ubiquiti Bullet M2 XW",
+        "0xe2d2": "Ubiquiti Bullet M2 Titanium HP",
+        "0xe2d5": "Ubiquiti Bullet M5 Titanium",
+        "0xe302": "Ubiquiti PicoStation M2",
+        "0xe3e5": "Ubiquiti PowerBeam M5 XW 300",
+        "0xe4a2": "Ubiquiti AirRouter",
+        "0xe4b2": "Ubiquiti AirRouter HP",
+        "0xe4d5": "Ubiquiti Rocket M5 Titanium",
+        "0xe4e5": "Ubiquiti PowerBeam M5 400",
+        "0xe6e5": "Ubiquiti PowerBeam M5 400-ISO",
+        "0xe805": "Ubiquiti NanoStation M5",
+        "0xe825": "Ubiquiti NanoBeam M5 19",
+        "0xe835": "Ubiquiti AirGrid M5 XW",
+        "0xe845": "Ubiquiti NanoStation Loco M5 XW",
+        "0xe855": "Ubiquiti NanoStation M5 XW",
+        "0xe865": "Ubiquiti LiteBeam M5",
+        "0xe866": "Ubiquiti NanoStation M2 XW",
+        "0xe867": "Ubiquiti NanoStation Loco M2 XW",
+        "0xe868": "Ubiquiti Rocket M2 XW",
+        "0xe885": "Ubiquiti PowerBeam M5 620 XW",
+        "0xe8a5": "Ubiquiti NanoStation Loco M5",
+        "0xe6b5": "Ubiquiti Rocket M5 XW",
+        "0xe812": "Ubiquiti NanoBeam M2 13",
+        "0xe815": "Ubiquiti NanoBeam M5 16",
+        "0xe1a5": "Ubiquiti PowerBridge M5"
+    };
 
-    local facts = {
-        ansible_distribution = "aredn",
-        ansible_os_family = "OpenWRT",
-    }
+    const facts = {
+        ansible_distribution: "aredn",
+        ansible_os_family: "OpenWRT"
+    };
 
-    local os_release_map = {
-        ansible_architecture = '^OPENWRT_ARCH="(.*)"$',
-        ansible_board = '^OPENWRT_BOARD="(.*)"$',
-        ansible_distribution_version = '^VERSION="(.*)"$',
-        ansible_distribution_build = '^BUILD_ID="(.*)"$',
-    }
-    for line in io.lines("/etc/os-release")
-    do
-        for k, p in pairs(os_release_map)
-        do
-            local v = line:match(p)
-            if v then
-                facts[k] = v
-                break
-            end
-        end
-    end
-
-    facts.ansible_hardware_type =  aredn.hardware.get_board_type():gsub(",", "_")
-    local f = io.popen("/usr/local/bin/get_boardid")
-    if f then
-        facts.ansible_hardware_model = f:read("*a"):match("(.+)\n")
-        f:close()
-    end
-    f = io.popen("/usr/local/bin/get_hardware_mfg")
-    if f then
-        facts.ansible_hardware_manufacturer = f:read("*a"):match("(.+)\n")
-        f:close()
-        if facts.ansible_hardware_manufacturer == "Ubiquiti" and facts.ansible_hardware_model then
-            facts.ansible_hardware_model = ubiquity_map[facts.ansible_hardware_model]
-        end
-    end
-
-    local ips = {}
-    local networks = {}
-    for _, v in ipairs(nixio.getifaddrs())
-    do
-        if v.family == "inet" and v.addr ~= "127.0.0.1" then
-            ips[#ips + 1] = v.addr
-        end
-        networks[v.family .. "/" .. v.name] = v
-    end
-    facts.ansible_all_ipv4_addresses = ips
-
-    local lcursor = uci.cursor("/etc/local/uci")
-    facts.ansible_hostname = lcursor:get("hsmmmesh", "settings", "node") or "NoCall"
-
-    local cursor = uci.cursor()
-    local nets = { "wifi", "lan", "wan", "dtdlink" }
-    for _, net in ipairs(nets)
-    do
-        local device = cursor:get("network", net, "ifname")
-        if device then
-            local network = {
-                active = true,
-                device = device,
-                type = "ether"
-            }
-            local n = networks["inet/" .. device]
-            if not n then
-                n = networks["inet/br-lan"]
-            end
-            if n then
-                network.ipv4 = {
-                    address = n.addr,
-                    netmask = n.netmask,
-                    broadcast = n.broadaddr
+    const os_release_map = {
+        ansible_architecture: /^OPENWRT_ARCH="(.*)"/,
+        ansible_board: /^OPENWRT_BOARD="(.*)"/,
+        ansible_distribution_version: /^VERSION="(.*)"/,
+        ansible_distribution_build: /^BUILD_ID="(.*)"/
+    };
+    let f = fs.open("/etc/os-release");
+    if (f) {
+        for (let line = f.read("line"); length(line); line = f.read("line")) {
+            for (let k in os_release_map) {
+                const m = match(line, os_release_map[k]);
+                if (m) {
+                    facts[k] = m[1];
                 }
-            end
-            n = networks["packet/" .. device]
-            if n then
-                network.macaddress = n.addr
-            end
-            facts["ansible_" .. net] = network
-        end
-    end
-
-    return { changed = false, failed = false, ansible_facts = facts }
-end
-
--- Boilerplate below --
-
-local json = require("luci.jsonc")
-
-local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
-if not success then
-    result = {
-        failed = true,
-        changed = false,
-        msg = result
+            }
+        }
+        f.close();
     }
-else
-    if result.failed ~= false then
-        result.failed = true
-    end
-    if result.changed ~= false then
-        result.changed = true
-    end
-end
-io.write(json.stringify(result))
+
+    f = fs.popen("/usr/local/bin/get_hardwaretype");
+    if (f) {
+        facts.ansible_hardware_type = trim(f.read("all"));
+        f.close();
+    }
+    f = fs.popen("/usr/local/bin/get_boardid");
+    if (f) {
+        facts.ansible_hardware_model = trim(f.read("all"));
+        f.close();
+    }
+    f = fs.popen("/usr/local/bin/get_hardware_mfg");
+    if (f) {
+        facts.ansible_hardware_manufacturer = trim(f.read("all"));
+        f.close();
+        if (facts.ansible_hardware_manufacturer == "Ubiquiti" && facts.ansible_hardware_model) {
+            facts.ansible_hardware_model = ubiquity_map[facts.ansible_hardware_model];
+        }
+    }
+
+    const lcursor = uci.cursor("/etc/local/uci");
+    facts.ansible_hostname = lcursor.get("hsmmmesh", "settings", "node") || "NoCall";
+
+    const interfaces = {};
+	let ifs = rtnl.request(rtnl.const.RTM_GETLINK, rtnl.const.NLM_F_DUMP, {});
+	for (let i = 0; i < length(ifs); i++) {
+        const iface = ifs[i];
+		if (iface.dev === "lo" || iface.dev === "wlan0-1" || iface.dev === "wlan1-1" || iface.dev === "tunl0") {
+			continue;
+		}
+		const ii = {
+            active: true,
+            device: iface.dev,
+            type: match(iface.dev, /^wlan/) ? "wifi" : "ether"
+        };
+		if (iface.address) {
+			ii.macaddress = iface.address;
+		}
+		interfaces[iface.dev] = ii;
+	}
+    const ip4 = [];
+    const ip6 = [];
+	ifs = rtnl.request(rtnl.const.RTM_GETADDR, rtnl.const.NLM_F_DUMP, {});
+	for (let i = 0; i < length(ifs); i++) {
+        const iface = ifs[i];
+		if (iface.family === 2) {
+            if (iface.dev !== "lo") {
+                push(ip4, iface.address);
+            }
+            if (interfaces[iface.dev]) {
+                interfaces[iface.dev].address = iface.local;
+                interfaces[iface.dev].netmask = network.CIDRToNetmask(split(iface.address, "/")[1]);
+                interfaces[iface.dev].broadcast = iface.broadcast;
+            }
+		}
+        else if (iface.family === 10) {
+            if (iface.dev !== "lo") {
+                push(ip6, iface.address);
+            }
+        }
+	}
+    facts.ansible_all_ipv4_addresses = ip4;
+    facts.ansible_all_ipv6_addresses = ip6;
+
+    const cursor = uci.cursor();
+    const nets = [ "wifi", "lan", "wan", "dtdlink" ];
+    for (let i = 0; i < length(nets); i++) {
+        const net = nets[i];
+        const device = cursor.get("network", net, "ifname");
+        if (device && interfaces[device]) {
+            facts[`ansible_${net}`] = interfaces[device];
+        }
+    }
+
+    return { changed: false, failed: false, ansible_facts: facts };
+}
+
+// Boilerplate below --
+// WANT_JSON
+
+try {
+    const result = execute(json(fs.readfile(ARGV[0])));
+    if (result.failed !== false) {
+        result.failed = true;
+    }
+    if (result.changed !== false) {
+        result.changed = true;
+    }
+    return printf("%J", result);
+}
+catch (e) {
+    return printf("%J", { failed: true, changed: false, msg: e });
+}

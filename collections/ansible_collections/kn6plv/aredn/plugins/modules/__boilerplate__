@@ -1,28 +1,27 @@
-#! /usr/bin/lua
+#! /usr/bin/ucode
+
+import * as fs from "fs";
 
 function execute(args)
-    local result = { changed = false, failed = false }
+{
+    const result = { changed: false, failed: false };
 
-    return result
-end
+    return result;
+}
 
--- Boilerplate below --
+// Boilerplate below --
+// WANT_JSON
 
-local json = require("luci.jsonc")
-
-local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
-if not success then
-    result = {
-        failed = true,
-        changed = false,
-        msg = result
+try {
+    const result = execute(json(fs.readfile(ARGV[0])));
+    if (result.failed !== false) {
+        result.failed = true;
     }
-else
-    if result.failed ~= false then
-        result.failed = true
-    end
-    if result.changed ~= false then
-        result.changed = true
-    end
-end
-io.write(json.stringify(result))
+    if (result.changed !== false) {
+        result.changed = true;
+    }
+    return printf("%J", result);
+}
+catch (e) {
+    return printf("%J", { failed: true, changed: false, msg: e });
+}

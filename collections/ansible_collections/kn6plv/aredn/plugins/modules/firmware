@@ -1,6 +1,6 @@
-#! /usr/bin/lua
+#! /usr/bin/ucode
 
-DOCUMENTATION = [[
+DOCUMENTATION = `
 ---
 module: firmware
 short_description: Check and update node firmware
@@ -25,15 +25,14 @@ notes:
   - None
 authors:
    - Tim Wilkinson KN6PLV <tim.j.wilkinson@gmail.com
-]]
+`;
 
-local json = require("luci.jsonc")
-local uci = require("uci")
-local nixio = require("nixio")
+import * as fs from "fs";
+import * as uci from "uci";
 
-local root = "http://downloads.arednmesh.org/"
+const root = "http://downloads.arednmesh.org/";
 
-local services = {
+const services = [
     "meshntpd",
     "meshchatsync",
     "dnsmasq",
@@ -41,274 +40,271 @@ local services = {
     "urngd",
     "telnet",
     "manager",
-    "uhttpd",
-    --"log",
-    --"rpcd",
-}
+    "uhttpd"
+];
 
 function stop_services()
-    for _, s in ipairs(services)
-    do
-        os.execute("exec /etc/init.d/" .. s .. " stop > /dev/null 2>&1")
-    end
-end
+{
+    for (let i = 0; i < length(services); i++) {
+        system(`exec /etc/init.d/${services[i]} stop > /dev/null 2>&1`);
+    }
+}
+
+function fetch(url)
+{
+    const p = fs.popen(`/bin/uclient-fetch "${url}" -O - 2> /dev/null`);
+    if (p) {
+        try {
+            const data = p.read("all");
+            p.close();
+            return { code: 200, body: data };
+        }
+        catch (_) {
+        }
+        p.close();
+    }
+    return { code: -1 };
+}
+
+function rpath(r)
+{
+    const m = match(r, /(\d+)\.(\d+)\.\d+\.\d+/);
+    return `${m[1]}/${m[2]}/${r}`;
+}
 
 function execute(args)
-    local result = { changed = false, failed = false }
+{
+    const result = { changed: false, failed: false };
 
-    local cursor = uci.cursor("/etc/local/uci")
-    local profiles
-    local sha256
-    local version
+    const cursor = uci.cursor("/etc/local/uci");
+    let profiles;
+    let sha256;
+    let version;
 
-    if args.shutdown_services then
-        stop_services()
-        return result
-    end
-    if args.file then
-        if not nixio.fs.stat(args.file) then
-            result.failed = true
-            result.msg = "cannot find file: " .. args.file
-            return result
-        end
-        if not args.sha256 then
-            result.failed = true
-            result.msg = "missing checksum"
-        end
-        sha256 = args.sha256
-        if args.file ~= "/tmp/firmware" then
-            os.execute("exec mv -f '" .. args.file .. "' /tmp/firmware")
-        end
-    else
-        local board
-        for line in io.lines("/etc/os-release")
-        do
-            local r = line:match('^VERSION="(.*)"$')
-            if r then
-                version = r
-            end
-            r = line:match('^OPENWRT_BOARD="(.*)"$')
-            if r then
-                board = r
-            end
-        end
+    if (args.shutdown_services) {
+        stop_services();
+        return result;
+    }
+    if (args.file) {
+        if (!fs.access(args.file)) {
+            result.failed = true;
+            result.msg = `cannot find file: ${args.file}`;
+            return result;
+        }
+        if (!args.sha256) {
+            result.failed = true;
+            result.msg = "missing checksum";
+        }
+        sha256 = args.sha256;
+        if (args.file != "/tmp/firmware") {
+            system("exec mv -f '${args.fil}' /tmp/firmware");
+        }
+    }
+    else {
+        let board;
+        let f = fs.open("/etc/os-release");
+        if (f) {
+            for (let line = f.read("line"); length(line); line = f.read("line")) {
+                let m = match(line, /^VERSION="(.*)"/);
+                if (m) {
+                    version = m[1];
+                }
+                m = match(line, /^OPENWRT_BOARD="(.*)"/);
+                if (m) {
+                    board = m[1];
+                }
+            }
+            f.close();
+        }
 
-        if not version then
-            result.failed = true
-            result.msg = "cannot find current version"
-            return result
-        end
-        if not args.version and not args.file then
-            result.failed = true
-            result.msg = "no version specified"
-            return result
-        end
-        if args.version == version then
-            result.version = version
-            return result
-        end
+        if (!version) {
+            result.failed = true;
+            result.msg = "cannot find current version";
+            return result;
+        }
+        if (!args.version && !args.file) {
+            result.failed = true;
+            result.msg = "no version specified";
+            return result;
+        }
+        if (args.version == version) {
+            result.version = version;
+            return result;
+        }
 
-        if not board then
-            result.failed = true
-            result.msg = "cannot find board"
-            return result
-        end
+        if (!board) {
+            result.failed = true;
+            result.msg = "cannot find board";
+            return result;
+        }
 
-        local http = require("socket.http")
-        local base_url
-        if args.version == "nightly" then
-            -- Nightlies are easy to find
-            base_url = root .. "snapshots/targets/" .. board .. "/"
-        else
-            -- For everything else we need to find the available releases
-            local body, code = http.request(root .. "releases/")
-            local releases = {}
-            if not body then
-                result.failed = true
-                result.msg = "cannot find versions: " .. code
-                result.url = root .. "releases/"
-                return result
-            end
-            for m in body:gmatch('href="(%d+%.%d+%.%d+%.%d+)/"')
-            do
-                releases[#releases + 1] = m
-            end
-            if #releases == 0 then
-                result.failed = true
-                result.msg = "no releases"
-                return result
-            end
-            table.sort(releases)
-            -- Select the latest if that's what we want
-            if args.version == "release" then
-                base_url = root .. "releases/" .. releases[#releases] .. "/targets/" .. board .. "/"
-            else
-                -- Otherwise make sure we have the specific one we ask for
-                if not args.version:match("%d+%.%d+%.%d+%.%d+") then
-                    result.failed = true
-                    result.msg = "unknown version: " .. args.version
-                    return result
-                end
-                local found = false
-                for _, v in ipairs(releases)
-                do
-                    if v == args.version then
-                        found = true
-                        break
-                    end
-                end
-                if not found then
-                    result.failed = true
-                    result.msg = "version not found"
-                    return result
-                end
-                base_url = root .. "releases/" .. args.version .. "/targets/" .. board .. "/"
-            end
-        end
+        let base_url;
+        if (args.version == "nightly") {
+            // Nightlies are easy to find
+            base_url = `${root}snapshots/targets/${board}/`;
+        }
+        else if (args.version == "babel") {
+            base_url = `${root}snapshots_babel/targets/${board}/`;
+        }
+        else {
+            // For everything else we need to find the available releases
+            const r = fetch(`${root}afs/www/config.js`);
+            const releases = [];
+            if (r.body) {
+                result.failed = true;
+                result.msg = `cannot find versions: ${r.code}`;
+                result.url = `${root}afs/www/config.js`;
+                return result;
+            }
+            const lines = split(r.body, "\n");
+            for (let i = 0; i < length(lines); i++) {
+                const l = lines[i];
+                const m = match(l, /versions: \{(.+)\}/);
+                if (m) {
+                    const kvs = split(m[1], ", ");
+                    for (let i = 0; i < length(kvs); i++) {
+                        const kv = split(kvs[i], ": ");
+                        push(releases, trim(kv[0], "'"));
+                    }
+                    break;
+                }
+            }
+            if (length(releases) == 0) {
+                result.failed = true;
+                result.msg = "no releases";
+                return result;
+            }
+            sort(releases);
+            // Select the latest if that's what we want
+            if (args.version == "release") {
+                base_url = `${root}releases/${rpath(releases[length(releases)-1])}/targets/${board}/`;
+            }
+            else {
+                // Otherwise make sure we have the specific one we ask for
+                if (!match(args.version, /\d+\.\d+\.\d+\.\d+/)) {
+                    result.failed = true;
+                    result.msg = `unknown version: ${args.version}`;
+                    return result;
+                }
+                let found = false;
+                for (let i = 0; i < length(releases); i++) {
+                    if (releases[i] == args.version) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    result.failed = true;
+                    result.msg = "version not found";
+                    return result;
+                }
+                base_url = `${root}releases/${rpath(args.version)}/targets/${board}/`;
+            }
+        }
 
-        -- Fetch and parse the profiles for the selected update
-        local body, code = http.request(base_url .. "profiles.json")
-        if not body then
-            result.failed = true
-            result.msg = "cannot read firmware profiles: " .. code
-            return result
-        end
-        profiles = json.parse(body)
+        // Fetch and parse the profiles for the selected update
+        const p = fetch(`${base_url}profiles.json`);
+        if (!p.body) {
+            result.failed = true;
+            result.msg = `cannot read firmware profiles: ${p.code}`;
+            return result;
+        }
+        profiles = json(p.body);
 
-        -- If we're on the correct version, nothing to do
-        if profiles.version_number == version then
-            result.version = version
-            return result
-        end
+        // If we're on the correct version, nothing to do
+        if (profiles.version_number == version) {
+            result.version = version;
+            return result;
+        }
 
-        -- Otherwise, look for the appropriate firmware file
-        local boardtype = "unknown"
-        local f = io.popen("exec /usr/local/bin/get_hardwaretype")
-        if f then
-            boardtype = f:read("*a"):match("(%S+)")
-            f:close()
-        end
-        -- Board type naming inconsistencies
-        if boardtype:match("^cpe") then
-            boardtype = "tplink," .. boardtype
-        end
+        // Otherwise, look for the appropriate firmware file
+        let boardtype = "unknown";
+        f = fs.popen("exec /usr/local/bin/get_hardwaretype");
+        if (f) {
+            boardtype = match(f.read("all"), /([^ \t]+)/)[1];
+            f.close();
+        }
+        // Board type naming inconsistencies
+        if (match(boardtype, /^cpe/)) {
+            boardtype = `tplink,${boardtype}`;
+        }
 
-        for _, profile in pairs(profiles.profiles)
-        do
-            for _, id in ipairs(profile.supported_devices)
-            do
-                if id == boardtype then
-                    for _, v in ipairs(profile.images)
-                    do
-                        if v.type == "sysupgrade" then
-                            result.firmware = base_url .. v.name
-                            sha256 = v.sha256
-                            break
-                        end
-                    end
-                    break
-                end
-            end
-        end
-        if not result.firmware then
-            result.failed = true
-            result.msg = "firmware not found"
-            return result
-        end
+        for (let p = 0; p < length(profiles.profiles); p++) {
+            const profile = profiles.profiles[p];
+            for (let d = 0; d < length(profile.supported_devices); d++) {
+                if (boardtype == profile.supported_devices[d]) {
+                    for (let i = 0; i < length(profile.images); i++) {
+                        if (profile.images[i].type == "sysupgrade") {
+                            result.firmware = `${base_url}${profile.images[i].name}`;
+                            sha256 = profile.images[i].sha256;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+        if (!result.firmware) {
+            result.failed = true;
+            result.msg = "firmware not found";
+            return result;
+        }
 
-        -- Fetch and verify the firmware
-        local node = cursor:get("hsmmmesh", "settings", "node") or "Node"
-        if os.execute("exec wget -U 'node: " .. node .. "' -O /tmp/firmware " .. result.firmware .. " > /dev/null 2>&1") ~= 0 then
-            result.failed = true
-            result.msg = "failed to download firmware"
-            return result
-        end
-    end
+        // Fetch and verify the firmware
+        const node = cursor.get("hsmmmesh", "settings", "node") || "Node";
+        if (system(`exec /bin/uclient-fetch -U 'node: ${node}' -O /tmp/firmware '${result.firmware}' > /dev/null 2>&1`) != 0) {
+            result.failed = true;
+            result.msg = "failed to download firmware";
+            return result;
+        }
+    }
 
-    local f = io.popen("exec sha256sum /tmp/firmware")
-    if f then
-        if f:read("*a"):match("^(%S+)") == sha256 then
+    let f = fs.popen("exec sha256sum /tmp/firmware");
+    if (f) {
+        const m = match(f.read("all"), /^([^ \t]+)/);
+        if (m && m[1] == sha256) {
             sha256 = nil
-        end
-        f:close()
-    end
-    if sha256 then
-        os.remove("/tmp/firmware")
-        result.failed = true
-        result.msg = "firmware checksum failed"
-        return result
-    end
+        }
+        f.close();
+    }
+    if (sha256) {
+        fs.unlink("/tmp/firmware");
+        result.failed = true;
+        result.msg = "firmware checksum failed";
+        return result;
+    }
 
-    local backup = false
-    if not args.first_boot then
-        local fin = io.open("/etc/arednsysupgrade.conf", "r")
-        if fin then
-            local fout = io.open("/tmp/sysupgradefilelist", "w")
-            if fout then
-                for line in fin:lines()
-                do
-                    if not line:match("^#") and nixio.fs.stat(line) then
-                        fout:write(line .. "\n")
-                    end
-                end
-                fout:close()
-                fin:close()
-                cursor:set("hsmmmesh", "settings", "nodeupgraded", "1")
-                cursor:commit("hsmmmesh")
-                if os.execute("exec tar -czf /tmp/arednsysupgradebackup.tgz -T /tmp/sysupgradefilelist > /dev/null 2>&1") == 0 then
-                    backup = true
-                else
-                    cursor:set("hsmmmesh", "settings", "nodeupgraded", "0")
-                    cursor:commit("hsmmmesh")
-                end
-                os.remove("/tmp/sysupgradefilelist")
-            end
-        end
-        if not backup then
-            result.failed = true
-            result.msg = "failed to backup configuration"
-            return result
-        end
-    end
+    // Do the upgrade
+    system(`setsid -c /usr/local/bin/aredn_sysupgrade ${args.first_boot ? '--firstuse' : ''}/tmp/firmware > /dev/null 2>&1 &`);
 
-    -- Do the upgrade
-    if backup then
-        os.execute("setsid -c /sbin/sysupgrade -f /tmp/arednsysupgradebackup.tgz -q /tmp/firmware > /dev/null 2>&1 &")
-    else
-        os.execute("setsid -c /sbin/sysupgrade -q -n /tmp/firmware > /dev/null 2>&1 &")
-    end
-
-    result.changed = true
-    if profiles then
-        result.version = profiles.version_number
-    end
-    if version then
-        result.old_version = version
-    end
-    result.msg = "upgrading" .. (backup and " with backup" or " with reset")
+    result.changed = true;
+    if (profiles) {
+        result.version = profiles.version_number;
+    }
+    if (version) {
+        result.old_version = version;
+    }
+    result.msg = `upgrading with ${args.first_boot ? "reset": "backup"}`;
 
     return result
-end
+}
 
-local dc = io.open("/proc/sys/vm/drop_caches", "w")
-dc:write("3")
-dc:close()
+fs.writefile("/proc/sys/vm/drop_caches", "3");
 
--- Boilerplate below --
+// Boilerplate below --
+// WANT_JSON
 
-local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
-if not success then
-    result = {
-        failed = true,
-        changed = false,
-        msg = result
+try {
+    const result = execute(json(fs.readfile(ARGV[0])));
+    if (result.failed !== false) {
+        result.failed = true;
     }
-else
-    if result.failed ~= false then
-        result.failed = true
-    end
-    if result.changed ~= false then
-        result.changed = true
-    end
-end
-io.write(json.stringify(result))
+    if (result.changed !== false) {
+        result.changed = true;
+    }
+    return printf("%J", result);
+}
+catch (e) {
+    return printf("%J", { failed: true, changed: false, msg: e });
+}
+

@@ -1,69 +1,69 @@
-#! /usr/bin/lua
+#! /usr/bin/ucode
 
-local nixio = require("nixio")
-local ubus = require("ubus")
+import * as fs from "fs";
+import * as ubus from "ubus";
 
-function run(cmd)
-    if nixio.fork() == 0 then
-        nixio.setsid()
-        os.execute(cmd)
-        os.exit()
-    end
-end
+function run(cmd, state)
+{
+    system(`${cmd} ${state}`, 5000);
+}
 
 function execute(args)
-    local result = { changed = false, failed = false }
+{
+    const result = { changed: false, failed: false };
 
-    if not args.name or not nixio.fs.stat("/etc/init.d/" .. args.name) then
-        result.failed = true
-        result.msg = "Missing service: " .. (args.name or "")
-    else
-        local cmd = "/etc/init.d/" .. args.name
-        if args.state == "reloaded" then
-            run(cmd .. " reload")
-            result.changed = true
-        elseif args.state == "restarted" then
-            run(cmd .. " restart")
-            result.changed = true
-        else
-            local list = ubus.connect():call("service", "list", {})
-            if args.state == "started" then
-                if not list[args.name] or not list[args.name].instances.instance1.running then
-                    run(cmd .. " start")
-                    result.changed = true
-                end
-            elseif args.state == "stopped" then
-                if list[args.name] and list[args.name].instances.instance1.running then
-                    run(cmd .. " stop")
-                    result.changed = true
-                end
-            else
-                result.failed = true
-                result.msg = "Bad state"
-            end
-        end
-    end
-
-    return result
-end
-
--- Boilerplate below --
-
-local json = require("luci.jsonc")
-
-local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
-if not success then
-    result = {
-        failed = true,
-        changed = false,
-        msg = result
+    if (!args.name || !fs.access(`/etc/init.d/${args.name}`)) {
+        result.failed = true;
+        result.msg = `Missing service: ${args.name || ""}`;
     }
-else
-    if result.failed ~= false then
-        result.failed = true
-    end
-    if result.changed ~= false then
-        result.changed = true
-    end
-end
-io.write(json.stringify(result))
+    else {
+        const cmd = `/etc/init.d/${args.name}`;
+        if (args.state == "reloaded") {
+            run(cmd, "reload");
+            result.changed = true;
+        }
+        else if (args.state == "restarted") {
+            run(cmd, "restart");
+            result.changed = true;
+        }
+        else {
+            local list = ubus.connect().call("service", "list", {});
+            if (args.state == "started") {
+                if (!list[args.name] || !list[args.name].instances.instance1.running) {
+                    run(cmd, "start");
+                    result.changed = true;
+                }
+            }
+            else if (args.state == "stopped") {
+                if (list[args.name] && list[args.name].instances.instance1.running) {
+                    run(cmd, "stop");
+                    result.changed = true;
+                }
+            }
+            else {
+                result.failed = true;
+                result.msg = "Bad state";
+            }
+        }
+    }
+
+    return result;
+}
+
+// Boilerplate below --
+// WANT_JSON
+
+try {
+    const result = execute(json(fs.readfile(ARGV[0])));
+    if (result.failed !== false) {
+        result.failed = true;
+    }
+    if (result.changed !== false) {
+        result.changed = true;
+    }
+    return printf("%J", result);
+}
+catch (e) {
+    return printf("%J", { failed: true, changed: false, msg: e });
+}
+gify(result))

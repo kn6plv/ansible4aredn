@@ -1,67 +1,66 @@
-#! /usr/bin/lua
+#! /usr/bin/ucode
 
-local nixio = require("nixio")
+import * as fs from "fs";
 
 function execute(args)
-    result = { changed = false, failed = false }
-    if not args.path then
-        result.failed = true
-        result.msg = "Missing file"
-    else
-        local s = nixio.fs.stat(args.path)
-        if not s then
-            result.stat = {
-                exists = false
-            }
-        else
-            result.stat = {
-                exists = true,
-                path = nixio.fs.realpath(args.path),
-                atime = s.atime,
-                mtime = s.mtime,
-                ctime = s.ctime,
-                size = s.size,
-                mode = s.modedec,
-                isreg = s.type == "reg",
-                isdir = s.type == "dir",
-                isblk = s.type == "blk",
-                isfifo = s.type == "fifo",
-                ischr = s.type == "chr",
-                islnk = s.type == "lnk",
-                issock = s.type == "sock",
-                dev = s.dev,
-                uid = s.uid,
-                gid = s.gid,
-                ino = s.ino,
-                nlink = s.nlink
-            }
-            if args.get_checksum then
-                if args.checksum_algorithm == "sha1" then
-                    result.stat.checksum = ""
-                end
-            end
-        end
-    end
-    return result
-end
-
--- Boilerplate below --
-
-local json = require("luci.jsonc")
-
-local success, result = pcall(execute, json.parse([[<<INCLUDE_ANSIBLE_MODULE_JSON_ARGS>>]]))
-if not success then
-    result = {
-        failed = true,
-        changed = false,
-        msg = result
+{
+    const result = { changed: false, failed: false };
+    if (!args.path) {
+        result.failed = true;
+        result.msg = "Missing file";
     }
-else
-    if result.failed ~= false then
-        result.failed = true
-    end
-    if result.changed ~= false then
-        result.changed = true
-    end
-end
-io.write(json.stringify(result))
+    else {
+        const s = fs.stat(args.path);
+        if (!s) {
+            result.stat = {
+                exists: false
+            };
+        }
+        else {
+            result.stat = {
+                exists: true,
+                path: fs.realpath(args.path),
+                atime: s.atime,
+                mtime: s.mtime,
+                ctime: s.ctime,
+                size: s.size,
+                mode: s.mode,
+                isreg: s.type == "file",
+                isdir: s.type == "directory",
+                isblk: s.type == "blk",
+                isfifo: s.type == "fifo",
+                ischr: s.type == "chr",
+                islnk: s.type == "lnk",
+                issock: s.type == "sock",
+                dev: s.dev,
+                uid: s.uid,
+                gid: s.gid,
+                ino: s.ino,
+                nlink: s.nlink
+            };
+            if (args.get_checksum) {
+                if (args.checksum_algorithm == "sha1") {
+                    result.stat.checksum = "";
+                }
+            }
+        }
+    }
+    return result;
+}
+
+// Boilerplate below --
+// WANT_JSON
+
+try {
+    const result = execute(json(fs.readfile(ARGV[0])));
+    if (result.failed !== false) {
+        result.failed = true;
+    }
+    if (result.changed !== false) {
+        result.changed = true;
+    }
+    return printf("%J", result);
+}
+catch (e) {
+    return printf("%J", { failed: true, changed: false, msg: e });
+}
