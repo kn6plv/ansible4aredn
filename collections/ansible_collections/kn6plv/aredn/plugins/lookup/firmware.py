@@ -106,7 +106,7 @@ class LookupModule(LookupBase):
                                 break
                         break
                 if not firmware_url:
-                    raise AnsibleError("firmware not found: " + boardtype)
+                    raise AnsibleError("firmware not found: " + boardtype + ", version: " + version)
 
                 # Fetch and verify firmware
                 resp = requests.get(firmware_url)

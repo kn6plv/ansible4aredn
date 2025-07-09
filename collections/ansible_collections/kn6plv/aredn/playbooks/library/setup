@@ -89,9 +89,9 @@ function execute(args)
         f.close();
     }
 
-    f = fs.popen("/usr/local/bin/get_hardwaretype");
+    f = fs.open("/tmp/sysinfo/board_name");
     if (f) {
-        facts.ansible_hardware_type = trim(f.read("all"));
+        facts.ansible_hardware_type = replace(trim(f.read("all")), ",", "_");
         f.close();
     }
     f = fs.popen("/usr/local/bin/get_boardid");
