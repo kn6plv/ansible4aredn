@@ -8,7 +8,7 @@ description:
   - Check and update node firmware to a specific version
   version:
     description:
-      - Check the node's current firmware against the given version (either 'release' or 'nightly')
+      - Check the node's current firmware against the given version (either 'release', 'nightly' or 'babel')
         and update if different. The node will download the correct firmware if internet access
         is available.
     type: str

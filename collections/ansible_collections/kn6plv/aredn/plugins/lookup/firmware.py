@@ -65,7 +65,7 @@ class LookupModule(LookupBase):
                     if resp.status_code != 200:
                         raise AnsibleError("cannot not find versions")
                     for v in re.finditer(r'versions: ({.+}),', resp.text):
-                        for m in re.finditer(r'\'(.+?)\': \'data/.+?\',', v.group(1)):
+                        for m in re.finditer(r'\'(.+?)\': \'data/.+?\'', v.group(1)):
                             releases.append(m.group(1))
                     if len(releases) == 0:
                         raise AnsibleError("no releases")
