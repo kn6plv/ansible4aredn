@@ -58,8 +58,8 @@ class LookupModule(LookupBase):
         for version in terms:
             # Look for cached versions to avoid network traffic
             filename = firmware_dir + ("aredn-" + version + "-" + board + "-" + boardtype + "-squashfs-sysupgrade.bin").replace("/", "-").replace(",", "-")
-            if version == "release" or version == "nightly" or not os.path.exists(filename):
-                if re.match(r"^\d+\.\d+\.\d+\.\d+$", version) or version == "release" or version == "nightly":
+            if version == "release" or version == "nightly" or version == "babel" or not os.path.exists(filename):
+                if re.match(r"^\d+\.\d+\.\d+\.\d+$", version) or version == "release" or version == "nightly" or version == "babel":
                     resp = requests.get(root + "config.js")
                     releases = []
                     if resp.status_code != 200:
@@ -70,12 +70,11 @@ class LookupModule(LookupBase):
                     if len(releases) == 0:
                         raise AnsibleError("no releases")
 
-                    # 2025-0311 Bob Iannucci
-                    # Use lexicographic sorting so that releases[-1] (release) and releases[0] (nightly) will be correct
-                    # releases.sort(key=LooseVersion)
                     releases.sort()
 
                     if version == "release":
+                        version = releases[-2]
+                    elif version == "babel":
                         version = releases[-1]
                     elif version == "nightly":
                         version = releases[0]
