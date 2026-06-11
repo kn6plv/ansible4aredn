@@ -9,7 +9,7 @@ import hashlib
 import os
 from ansible.errors import AnsibleError
 from ansible.plugins.lookup import LookupBase
-from distutils.version import LooseVersion
+from packaging.version import parse
 
 DOCUMENTATION = """
   lookup: firmware
@@ -62,22 +62,30 @@ class LookupModule(LookupBase):
                 if re.match(r"^\d+\.\d+\.\d+\.\d+$", version) or version == "release" or version == "nightly" or version == "babel":
                     resp = requests.get(root + "config.js")
                     releases = []
+                    babel = ""
+                    nightly = ""
                     if resp.status_code != 200:
                         raise AnsibleError("cannot not find versions")
                     for v in re.finditer(r'versions: ({.+}),', resp.text):
                         for m in re.finditer(r'\'(.+?)\': \'data/.+?\'', v.group(1)):
-                            releases.append(m.group(1))
+                            try:
+                                releases.append(parse(m.group(1)))
+                            except:
+                                if m.group(1).startswith("babel-"):
+                                    babel = m.group(1)
+                                else:
+                                    nightly = m.group(1)
                     if len(releases) == 0:
                         raise AnsibleError("no releases")
 
                     releases.sort()
 
                     if version == "release":
-                        version = releases[-2]
+                        version = str(releases[-1])
                     elif version == "babel":
-                        version = releases[-1]
+                        version = babel
                     elif version == "nightly":
-                        version = releases[0]
+                        version = nightly
                     elif version in releases:
                         pass
                     else:
