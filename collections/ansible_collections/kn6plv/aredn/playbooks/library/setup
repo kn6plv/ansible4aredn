@@ -107,6 +107,16 @@ function execute(args)
             facts.ansible_hardware_model = ubiquity_map[facts.ansible_hardware_model];
         }
     }
+    const hardwaretype = hardware.getHardwareType();
+    if (match(hardwaretype, /\-efi/)) {
+        facts.ansible_hardware_subtype = "efi";
+    }
+    else if (match(hardwaretype, /\-v7/)) {
+        facts.ansible_hardware_subtype = "v7";
+    }
+    else {
+        facts.ansible_hardware_subtype = "";
+    }
 
     const lcursor = uci.cursor("/etc/local/uci");
     facts.ansible_hostname = lcursor.get("hsmmmesh", "settings", "node") || "NoCall";

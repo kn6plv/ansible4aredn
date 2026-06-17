@@ -45,24 +45,30 @@ class LookupModule(LookupBase):
         boardtype = variables["ansible_hardware_type"]
         if not boardtype:
             raise AnsibleError("no hardware type")
+        boardsubtype = variables["ansible_hardware_subtype"]
 
         # Board type naming inconsistencies
+        sysupgrade = "sysupgrade"
         if re.match(r"^cpe", boardtype):
             boardtype = boardtype = "tplink," + boardtype
         if re.match(r"^rocket-m-xw", boardtype):
             boardtype = boardtype = "ubnt-" + boardtype
-        if re.match(r"^qemu", boardtype) or re.match(r"^vmware", boardtype):
+        if re.match(r"^qemu", boardtype) or re.match(r"^vmware", boardtype) or re.match(r"vultr", boardtype):
             boardtype = "generic"
+            sysupgrade = "combined"
+        if boardsubtype == "efi":
+                sysupgrade = "combined-efi"
+        if re.match(r"^mikrotik", boardtype) and boardsubtype == "v7":
+            sysupgrade = "sysupgrade-v7"
 
         ret = []
         for version in terms:
             # Look for cached versions to avoid network traffic
-            filename = firmware_dir + ("aredn-" + version + "-" + board + "-" + boardtype + "-squashfs-sysupgrade.bin").replace("/", "-").replace(",", "-")
-            if version == "release" or version == "nightly" or version == "babel" or not os.path.exists(filename):
-                if re.match(r"^\d+\.\d+\.\d+\.\d+$", version) or version == "release" or version == "nightly" or version == "babel":
+            filename = firmware_dir + ("aredn-" + version + "-" + board + "-" + boardtype + "-squashfs-" + sysupgrade + ".bin").replace("/", "-").replace(",", "-")
+            if version == "release" or version == "nightly" or not os.path.exists(filename):
+                if re.match(r"^\d+\.\d+\.\d+\.\d+$", version) or version == "release" or version == "nightly":
                     resp = requests.get(root + "config.js")
                     releases = []
-                    babel = ""
                     nightly = ""
                     if resp.status_code != 200:
                         raise AnsibleError("cannot not find versions")
@@ -71,10 +77,7 @@ class LookupModule(LookupBase):
                             try:
                                 releases.append(parse(m.group(1)))
                             except:
-                                if m.group(1).startswith("babel-"):
-                                    babel = m.group(1)
-                                else:
-                                    nightly = m.group(1)
+                                nightly = m.group(1)
                     if len(releases) == 0:
                         raise AnsibleError("no releases")
 
@@ -82,8 +85,6 @@ class LookupModule(LookupBase):
 
                     if version == "release":
                         version = str(releases[-1])
-                    elif version == "babel":
-                        version = babel
                     elif version == "nightly":
                         version = nightly
                     elif version in releases:
@@ -92,45 +93,48 @@ class LookupModule(LookupBase):
                         raise AnsibleError("version not found: %s" % version)
                 else:
                     raise AnsibleError("unknown version: %s" % version)
-
-                resp = requests.get(root + "data/" + version + "/overview.json")
-                if resp.status_code != 200:
-                    raise AnsibleError("cannot read firmware overviews: %s" % (root + "data/" + version + "/overview.json"))
-                overview = resp.json()
-                target = False
+                
                 firmware_url = False
-                for profile in overview["profiles"]:
-                    if profile["id"] == boardtype:
-                        target = overview["image_url"].replace("{target}", profile["target"])
-                        resp = requests.get(root + "data/" + version + "/" + profile["target"] + "/" + profile["id"] + ".json")
-                        if resp.status_code != 200:
-                            raise AnsibleError("cannot read firmware profile: %s" % (root + "data/" + version + "/" + profile["target"] + "/" + profile["id"] + ".json"))
-                        profile = resp.json()
-                        for image in profile["images"]:
-                            if image["type"] == "sysupgrade" or image["type"] == "nand-sysupgrade" or image["type"] == "combined":
-                                firmware_url = target + "/" + image["name"]
-                                firmware_sha = image["sha256"]
-                                break
-                        break
-                if not firmware_url:
-                    raise AnsibleError("firmware not found: " + boardtype + ", version: " + version)
+                filename = firmware_dir + ("aredn-" + version + "-" + board + "-" + boardtype + "-squashfs-" + sysupgrade + ".bin").replace("/", "-").replace(",", "-")
+                if not os.path.exists(filename):
+                    resp = requests.get(root + "data/" + version + "/overview.json")
+                    if resp.status_code != 200:
+                        raise AnsibleError("cannot read firmware overviews: %s" % (root + "data/" + version + "/overview.json"))
+                    overview = resp.json()
+                    target = False
+                    for profile in overview["profiles"]:
+                        if profile["id"] == boardtype:
+                            target = overview["image_url"].replace("{target}", profile["target"])
+                            resp = requests.get(root + "data/" + version + "/" + profile["target"] + "/" + profile["id"] + ".json")
+                            if resp.status_code != 200:
+                                raise AnsibleError("cannot read firmware profile: %s" % (root + "data/" + version + "/" + profile["target"] + "/" + profile["id"] + ".json"))
+                            profile = resp.json()
+                            for image in profile["images"]:
+                                if image["type"] == sysupgrade or image["type"] == "nand-sysupgrade" or image["type"] == "itb":
+                                    firmware_url = target + "/" + image["name"]
+                                    firmware_sha = image["sha256"]
+                                    break
 
-                # Fetch and verify firmware
-                resp = requests.get(firmware_url)
-                if resp.status_code != 200:
-                    raise AnsibleError("cannot download firmware")
-                if hashlib.sha256(resp.content).hexdigest() != firmware_sha:
-                    raise AnsibleError("firmware checksum failed")
+                            break
+                    if not firmware_url:
+                        raise AnsibleError("firmware not found: " + boardtype + ", version: " + version)
 
-                # Store content in a file
-                f = open(filename, mode="w+b")
-                f.write(resp.content)
-                f.close()
+                    # Fetch and verify firmware
+                    resp = requests.get(firmware_url)
+                    if resp.status_code != 200:
+                        raise AnsibleError("cannot download firmware")
+                    if hashlib.sha256(resp.content).hexdigest() != firmware_sha:
+                        raise AnsibleError("firmware checksum failed")
+
+                    # Store content in a file
+                    f = open(filename, mode="w+b")
+                    f.write(resp.content)
+                    f.close()
 
             f = open(filename, mode="r+b")
             sha = hashlib.sha256(f.read()).hexdigest()
             f.close()
 
-            ret.append({"version": version, "file": filename, "sha256": sha, "size": os.path.getsize(filename)})
+            ret.append({"version": version, "file": filename, "sha256": sha, "size": os.path.getsize(filename), "url": firmware_url})
 
         return ret
